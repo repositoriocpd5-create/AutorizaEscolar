@@ -141,14 +141,20 @@ def gerar_sql(leitura: Leitura) -> str:
         "(" + ", ".join(_lit(getattr(l, c)) for c in colunas) + ")" for l in leitura.linhas)
     avisos = "\n".join(f"--   {a}" for a in leitura.avisos) or "--   (nenhum)"
     n_ativos = sum(1 for l in leitura.linhas if l.ativo)
-    return f"""-- =====================================================================
+    return f"""-- >>>>>>>>>> PREENCHA AS LINHAS 4 E 5 E DEPOIS CLIQUE EM "RUN" <<<<<<<<<<
+BEGIN;
+CREATE TEMP TABLE _cfg ON COMMIT DROP AS SELECT
+  '00000000'::text               AS inep,    -- >>> 1) troque 00000000 pelo INEP da escola (8 dígitos)
+  'COLE-AQUI-O-CPF_PEPPER'::text AS pepper;  -- >>> 2) troque pelo CPF_PEPPER do servidor (Render)
+
+-- =====================================================================
 -- Autoriza Escolar — importação de ALUNOS e RESPONSÁVEIS (dados reais — LGPD)
 -- {len(leitura.linhas)} alunos ({n_ativos} ativos). NÃO versione nem compartilhe este arquivo.
 --
--- ANTES DE RODAR, preencha as DUAS linhas marcadas com  >>>  logo abaixo:
---   1) o INEP da escola destes alunos (a escola já deve existir — escolas.sql);
---   2) o CPF_PEPPER do servidor (Render → Environment). Deve ser EXATAMENTE o mesmo,
---      senão os responsáveis não conseguem entrar. Ele não fica salvo em lugar nenhum.
+-- 1) INEP: a escola já deve existir (escolas.sql). Para consultar:
+--      SELECT nome, inep FROM escola ORDER BY nome;
+-- 2) CPF_PEPPER: EXATAMENTE o mesmo do servidor (Render → Environment),
+--    senão os responsáveis não conseguem entrar. Ele não fica salvo em lugar nenhum.
 --
 -- Pré-requisitos: schema.sql (versão atual) e escolas.sql já executados.
 -- Pode ser executado mais de uma vez: atualiza sem duplicar.
@@ -157,24 +163,18 @@ def gerar_sql(leitura: Leitura) -> str:
 {avisos}
 -- =====================================================================
 
-BEGIN;
-
 CREATE SCHEMA IF NOT EXISTS extensions;
 CREATE EXTENSION IF NOT EXISTS pgcrypto WITH SCHEMA extensions;
-
-CREATE TEMP TABLE _cfg ON COMMIT DROP AS SELECT
-  '00000000'::text              AS inep,     -- >>> 1) INEP da escola (8 dígitos)
-  'COLE-AQUI-O-CPF_PEPPER'::text AS pepper;  -- >>> 2) CPF_PEPPER do servidor
 
 DO $chk$
 DECLARE c record;
 BEGIN
   SELECT * INTO c FROM _cfg;
   IF NOT EXISTS (SELECT 1 FROM escola WHERE inep = c.inep) THEN
-    RAISE EXCEPTION 'Escola com INEP % não encontrada. Preencha o INEP na linha marcada com >>> 1).', c.inep;
+    RAISE EXCEPTION 'Escola com INEP % não encontrada. Preencha o INEP na LINHA 4 do arquivo (topo).', c.inep;
   END IF;
   IF c.pepper = 'COLE-AQUI-O-CPF_PEPPER' OR length(c.pepper) < 16 THEN
-    RAISE EXCEPTION 'Preencha o CPF_PEPPER do servidor na linha marcada com >>> 2).';
+    RAISE EXCEPTION 'Preencha o CPF_PEPPER do servidor na LINHA 5 do arquivo (topo).';
   END IF;
 END
 $chk$;

@@ -36,7 +36,7 @@ def test_leitura_normaliza_e_valida():
 
 def test_sql_gerado_nao_contem_pepper_e_tem_protecoes():
     sql = imp.gerar_sql(imp.ler(FICTICIOS))
-    assert "COLE-AQUI-O-CPF_PEPPER" in sql and "'00000000'" in sql
+    assert "COLE-AQUI-O-CPF_PEPPER" in sql.splitlines()[4] and "'00000000'" in sql.splitlines()[3]
     assert "extensions.hmac(" in sql and "ON CONFLICT (matricula)" in sql
     assert "RAISE EXCEPTION" in sql and sql.count("INSERT INTO responsavel ") == 2
 
