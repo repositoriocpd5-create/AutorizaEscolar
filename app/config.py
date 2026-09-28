@@ -105,7 +105,8 @@ class TestConfig(Config):
     ADMIN_EMAILS = set()
     DEMO_ADMIN_SENHA = "senha-teste-admin"
     DEMO_ESCOLA_SENHA = "senha-teste-escola"
-    SQLALCHEMY_DATABASE_URI = "sqlite://"
+    # TEST_DATABASE_URL permite rodar os testes num PostgreSQL real.
+    SQLALCHEMY_DATABASE_URI = _url_banco(os.environ.get("TEST_DATABASE_URL", "sqlite://"))
     DEMO_MODE = True
     SECRET_KEY = "teste"
     CPF_PEPPER = "teste"

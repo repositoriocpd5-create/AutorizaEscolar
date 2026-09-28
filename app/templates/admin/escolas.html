@@ -31,6 +31,16 @@
   </div>
 </form>
 
+{% if sem_turmas %}
+<div class="aviso aviso--warn">{{ ui.icon('info') }}
+  <span><strong>{{ sem_turmas }}</strong> escola(s) ativa(s) sem turmas.
+    <form method="post" action="{{ url_for('admin.escolas_gerar_turmas') }}" class="inline-form js-confirm"
+          data-confirm="Criar 'Turma A' para cada ano/série da modalidade nas {{ sem_turmas }} escola(s) sem turmas?">
+      <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+      <button class="btn btn--outline btn--xs">{{ ui.icon('plus') }}Gerar turmas pela modalidade</button>
+    </form></span>
+</div>
+{% endif %}
 <p class="table-meta">{{ total }} escola(s)</p>
 <div class="table-wrap">
 <table class="data-table">

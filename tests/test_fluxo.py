@@ -47,7 +47,7 @@ def login(client, cpf="000.000.000-00"):
 
 
 def meus(client, token):
-    pid = Passeio.query.first().public_id
+    pid = Passeio.query.order_by(Passeio.id).first().public_id
     r = client.get(f"/api/passeios/{pid}/meus-alunos")
     return pid, r.get_json()["alunos"]
 
@@ -135,7 +135,7 @@ def test_alteracao_gera_historico_e_substitui_documento(client):
 def test_prazo_e_bloqueio_de_alteracao(client, app):
     _, token = login(client)
     pid, alunos = meus(client, token)
-    p = Passeio.query.first()
+    p = Passeio.query.order_by(Passeio.id).first()
     p.data_limite = agora_local() - timedelta(minutes=1)
     db.session.commit()
     r = client.post(f"/api/passeios/{pid}/autorizacoes", headers={"X-CSRF-Token": token}, json={

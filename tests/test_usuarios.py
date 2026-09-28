@@ -38,7 +38,7 @@ def test_comum_so_consulta_por_padrao(client):
     for url in ("/admin/relatorios", "/admin/exportar?formato=csv", "/admin/auditoria", "/admin/usuarios",
                 "/admin/configuracoes", "/admin/passeios/novo"):
         assert client.get(url).status_code == 403, url
-    p = Passeio.query.first()
+    p = Passeio.query.order_by(Passeio.id).first()
     token = csrf(client, "/admin/")
     r = client.post("/admin/autorizacoes/revogar", data={"_csrf": token, "passeio": p.public_id,
                                                           "todos_filtrados": "1", "motivo": "tentativa"})

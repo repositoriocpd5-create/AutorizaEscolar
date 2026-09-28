@@ -15,9 +15,44 @@ from ..models import AdminUsuario, Aluno, Escola, Passeio, Turma
 RE_EMAIL = re.compile(r"[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}")
 
 # Anos/séries oferecidos no cadastro de turmas em lote (ordem de exibição).
-ANOS_PADRAO = ["Berçário", "Maternal I", "Maternal II", "Pré I", "Pré II",
+ANOS_PADRAO = ["Berçário", "Nível I", "Nível II", "Maternal I", "Maternal II", "Pré I", "Pré II",
                "1º Ano", "2º Ano", "3º Ano", "4º Ano", "5º Ano", "6º Ano", "7º Ano", "8º Ano", "9º Ano",
-               "EJA I", "EJA II"]
+               "EJA"]
+
+
+def anos_da_modalidade(modalidade: str | None) -> list[str]:
+    """Deduz os anos/séries a partir do texto de modalidade da rede. Exemplos:
+    'Pré ao 9º Ano' → Pré I, Pré II, 1º…9º Ano · 'Pré II ao 7º ano' → Pré II, 1º…7º Ano
+    '6º ao 9º Ano' → 6º…9º Ano · 'Pré I e PréII' → Pré I, Pré II
+    'Berçário NI e NII' → Berçário, Nível I, Nível II · '... EJA' → acrescenta EJA."""
+    t = (modalidade or "").replace("°", "º").strip()
+    if not t:
+        return []
+    baixo = t.lower()
+    anos: list[str] = []
+    faixa = re.search(r"(pr[ée]\s*(ii|i)?|(\d)\s*º)\s*(?:ano\s*)?ao\s*(\d)\s*º", baixo)
+    if faixa:
+        fim = int(faixa.group(4))
+        if faixa.group(1).startswith("pr"):
+            anos += ["Pré II"] if faixa.group(2) == "ii" else ["Pré I", "Pré II"]
+            inicio = 1
+        else:
+            inicio = int(faixa.group(3))
+        anos += [f"{n}º Ano" for n in range(inicio, fim + 1)]
+    elif re.search(r"pr[ée]\s*i\b", baixo) or re.search(r"pr[ée]\s*ii\b", baixo):
+        if re.search(r"pr[ée]\s*i\b", baixo):
+            anos.append("Pré I")
+        if re.search(r"pr[ée]\s*ii\b", baixo):
+            anos.append("Pré II")
+    if "berç" in baixo or "berc" in baixo:
+        anos.append("Berçário")
+        if re.search(r"\bni\b", baixo):
+            anos.append("Nível I")
+        if re.search(r"\bnii\b", baixo):
+            anos.append("Nível II")
+    if re.search(r"\beja\b", baixo):
+        anos.append("EJA")
+    return anos
 
 
 class ErroEscola(ValueError):
@@ -209,6 +244,28 @@ def sql_supabase(dados: list) -> str:
         partes.append("-- Escolas sem INEP válido/único (revise o INEP no painel):")
         partes.append(f"INSERT INTO escola ({', '.join(colunas)}) VALUES\n  " + ",\n  ".join(linhas_sem) +
                       f"\nON CONFLICT (codigo) DO UPDATE SET\n  {atualiza};")
+    # Turmas deduzidas da modalidade ("Turma A" por ano/série), sem duplicar.
+    partes.append("-- Turmas geradas a partir da modalidade de cada escola (ajuste no painel se necessário):")
+    vistos2 = set()
+    for bruto in dados:
+        d = normalizar_registro(bruto)
+        if not d["nome"]:
+            continue
+        if d["inep"] in vistos2:
+            d["inep"] = None
+        if d["inep"]:
+            vistos2.add(d["inep"])
+        codigo = d["inep"] or ("ESC-" + _chave_nome(d["nome"])[:20].upper())
+        anos = anos_da_modalidade(d["modalidade"])
+        if not anos:
+            partes.append(f"-- {d['nome']}: modalidade não informada; cadastre as turmas no painel.")
+            continue
+        valores = ", ".join(f"({lit(a)})" for a in anos)
+        partes.append(
+            "INSERT INTO turma (nome, ano, escola_id)\n"
+            f"SELECT 'Turma A', v.ano, e.id FROM escola e CROSS JOIN (VALUES {valores}) AS v(ano)\n"
+            f"WHERE e.codigo = {lit(codigo)} AND NOT EXISTS (SELECT 1 FROM turma t "
+            "WHERE t.escola_id = e.id AND t.ano = v.ano AND t.nome = 'Turma A');")
     partes.append("COMMIT;")
     return "\n".join(partes) + "\n"
 
@@ -295,6 +352,13 @@ def criar_turmas(adm, escola: Escola, anos: list[str], letras: str) -> int:
     audit.registrar(audit.Acao.ADMIN_ACAO, "ADMIN", adm.id, alvo=f"escola:{escola.id}",
                     detalhes={"acao": "criar_turmas", "quantidade": criadas}, commit=False)
     return criadas
+
+
+def gerar_turmas_pela_modalidade(adm, escola: Escola, letras: str = "A") -> int:
+    anos = anos_da_modalidade(escola.modalidade)
+    if not anos:
+        raise ErroEscola(f"Não foi possível deduzir os anos a partir da modalidade de {escola.nome}.")
+    return criar_turmas(adm, escola, anos, letras)
 
 
 def excluir_turma(adm, escola: Escola, turma_id: int) -> None:

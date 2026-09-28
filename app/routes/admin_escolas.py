@@ -33,8 +33,9 @@ def escolas():
     lista = consulta.order_by(Escola.nome).offset((min(pagina, total_paginas) - 1) * POR_PAGINA).limit(POR_PAGINA).all()
     alunos_por_escola = dict(db.session.query(Aluno.escola_id, func.count(Aluno.id))
                              .filter(Aluno.ativo.is_(True)).group_by(Aluno.escola_id).all())
+    sem_turmas = Escola.query.filter(Escola.ativo.is_(True), ~Escola.turmas.any()).count()
     return render_template("admin/escolas.html", lista=lista, total=total, pagina=pagina, total_paginas=total_paginas,
-                           q=q, situacao=situacao, alunos_por_escola=alunos_por_escola)
+                           q=q, situacao=situacao, alunos_por_escola=alunos_por_escola, sem_turmas=sem_turmas)
 
 
 @bp.route("/escolas/nova", methods=["GET", "POST"])
@@ -71,7 +72,8 @@ def escola_editar(eid):
     alunos_por_turma = dict(db.session.query(Aluno.turma_id, func.count(Aluno.id))
                             .filter(Aluno.escola_id == e.id).group_by(Aluno.turma_id).all())
     return render_template("admin/escola_form.html", e=e, erro=erro, form=request.form if erro else None,
-                           ANOS=esc.ANOS_PADRAO, alunos_por_turma=alunos_por_turma)
+                           ANOS=esc.ANOS_PADRAO, alunos_por_turma=alunos_por_turma,
+                           anos_modalidade=esc.anos_da_modalidade(e.modalidade))
 
 
 @bp.post("/escolas/<int:eid>/turmas")
@@ -82,6 +84,9 @@ def escola_turmas(eid):
         if request.form.get("acao") == "excluir":
             esc.excluir_turma(admin_atual(), e, request.form.get("turma_id", type=int) or 0)
             msg = "Turma excluída."
+        elif request.form.get("acao") == "modalidade":
+            n = esc.gerar_turmas_pela_modalidade(admin_atual(), e, request.form.get("letras", "A"))
+            msg = f"{n} turma(s) criada(s) a partir da modalidade." if n else "As turmas da modalidade já existiam."
         else:
             n = esc.criar_turmas(admin_atual(), e, request.form.getlist("anos"), request.form.get("letras", ""))
             msg = f"{n} turma(s) criada(s)." if n else "Nenhuma turma nova (todas já existiam)."
@@ -91,6 +96,25 @@ def escola_turmas(eid):
         db.session.rollback()
         flash(str(ex), "erro")
     return redirect(url_for("admin.escola_editar", eid=e.id) + "#turmas")
+
+
+@bp.post("/escolas/gerar-turmas")
+@permissao_obrigatoria("escolas")
+def escolas_gerar_turmas():
+    """Cria 'Turma A' por ano/série (deduzidos da modalidade) nas escolas ativas SEM turmas."""
+    adm = admin_atual()
+    escolas, turmas, sem_modalidade = 0, 0, []
+    for e in Escola.query.filter(Escola.ativo.is_(True), ~Escola.turmas.any()).order_by(Escola.nome):
+        if not esc.anos_da_modalidade(e.modalidade):
+            sem_modalidade.append(e.nome)
+            continue
+        turmas += esc.gerar_turmas_pela_modalidade(adm, e)
+        escolas += 1
+    db.session.commit()
+    flash(f"{turmas} turma(s) criada(s) em {escolas} escola(s)." +
+          (f" Sem modalidade reconhecida (cadastre manualmente): {', '.join(sem_modalidade)}." if sem_modalidade else ""),
+          "sucesso")
+    return redirect(url_for("admin.escolas"))
 
 
 @bp.post("/escolas/<int:eid>/excluir")

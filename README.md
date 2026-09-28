@@ -224,6 +224,11 @@ importação do `schools_data.json` da rede — idempotente, atualiza pelo INEP.
 ```
 
 No Supabase: rode `docs/supabase/schema.sql` e depois `docs/supabase/escolas.sql` no SQL Editor.
+O `schema.sql` é **incremental e reexecutável** (aplica só as migrations que faltam, conforme
+`alembic_version`); regenere-o após criar migrations com `python scripts/gerar_sql_supabase.py`.
+O `escolas.sql` também cria "Turma A" para cada ano/série deduzido da modalidade de cada escola.
+
+Para rodar os testes num PostgreSQL real: defina `TEST_DATABASE_URL=postgresql://usuario@host:porta/banco_vazio`.
 
 ### Responsáveis e alunos
 

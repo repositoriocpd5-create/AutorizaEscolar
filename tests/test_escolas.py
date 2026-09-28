@@ -91,3 +91,28 @@ def test_permissao_escolas(client):
     entrar_admin(client, "escola.exemplo", "senha-teste-escola")      # admin de escola: não gerencia escolas
     assert client.get("/admin/escolas").status_code == 403
     assert "Escolas</a>" not in client.get("/admin/").get_data(as_text=True)
+
+
+def test_anos_da_modalidade():
+    f = esc.anos_da_modalidade
+    assert f("Pré ao 5º Ano") == ["Pré I", "Pré II", "1º Ano", "2º Ano", "3º Ano", "4º Ano", "5º Ano"]
+    assert f("Pré II ao 7º ano")[:2] == ["Pré II", "1º Ano"] and f("Pré II ao 7º ano")[-1] == "7º Ano"
+    assert f("6º ao 9º Ano") == ["6º Ano", "7º Ano", "8º Ano", "9º Ano"]
+    assert f("1º ao 9º Ano EJA")[-1] == "EJA" and f("Pré ao 9° Ano")[-1] == "9º Ano"
+    assert f("Pré I e PréII") == ["Pré I", "Pré II"]
+    assert f("Berçário NI e NII") == ["Berçário", "Nível I", "Nível II"]
+    assert f("") == [] and f(None) == []
+
+
+def test_gerar_turmas_pela_modalidade(client):
+    token = entrar_admin(client)
+    esc.importar(AMOSTRA[:1] + [{"name": "Creche Teste", "inep": 33000001, "modality": "Berçário NI e NII"},
+                                {"name": "Sem Modalidade", "inep": 33000002}])
+    db.session.commit()
+    r = client.post("/admin/escolas/gerar-turmas", data={"_csrf": token}, follow_redirects=True)
+    html = r.get_data(as_text=True)
+    creche = Escola.query.filter_by(inep="33000001").one()
+    assert sorted(t.ano for t in creche.turmas) == ["Berçário", "Nível I", "Nível II"]
+    assert "Sem Modalidade" in html                     # avisada: cadastrar manualmente
+    client.post(f"/admin/escolas/{creche.id}/turmas", data={"_csrf": token, "acao": "modalidade", "letras": "A, B"})
+    assert Turma.query.filter_by(escola_id=creche.id).count() == 6   # só acrescenta as turmas B

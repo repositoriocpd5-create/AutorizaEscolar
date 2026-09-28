@@ -75,6 +75,17 @@
   <p class="aviso aviso--warn">{{ ui.icon('info') }}<span>Nenhuma turma cadastrada — a escola não aparece no cadastro de passeios nem de alunos até ter turmas.</span></p>
   {% endif %}
 
+  {% if anos_modalidade %}
+  <form method="post" action="{{ url_for('admin.escola_turmas', eid=e.id) }}" class="card card--sub stack mt-1">
+    <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+    <input type="hidden" name="acao" value="modalidade">
+    <h3 class="card-title">{{ ui.icon('school') }} Gerar pela modalidade <small class="muted">“{{ e.modalidade }}”</small></h3>
+    <p class="small">Anos/séries: <strong>{{ anos_modalidade|join(', ') }}</strong></p>
+    <label>Turmas de cada ano <small class="muted">(letras)</small><input name="letras" class="input" value="A" required></label>
+    <button class="btn btn--primary">{{ ui.icon('plus') }}Gerar turmas</button>
+  </form>
+  {% endif %}
+
   <form method="post" action="{{ url_for('admin.escola_turmas', eid=e.id) }}" class="card card--sub stack mt-1">
     <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
     <input type="hidden" name="acao" value="criar">

@@ -65,7 +65,7 @@ def test_filtro_turma_incompativel_com_escola_retorna_vazio(client):
 
 def test_filtro_situacao(client):
     entrar_admin(client)
-    p = Passeio.query.first()
+    p = Passeio.query.order_by(Passeio.id).first()
     aut = Autorizacao.query.filter_by(passeio_id=p.id, situacao=Situacao.AUTORIZADO).count()
     nao = Autorizacao.query.filter_by(passeio_id=p.id, situacao=Situacao.NAO_AUTORIZADO).count()
     todos = PasseioAluno.query.filter_by(passeio_id=p.id).count()
@@ -171,7 +171,7 @@ def test_responsavel_cancela_dentro_do_prazo(client):
 
 def test_prazo_em_horas_para_alterar(client):
     pid, pedro, token = _autorizar_pedro(client)
-    p = Passeio.query.first()
+    p = Passeio.query.order_by(Passeio.id).first()
     p.prazo_alteracao_horas = 2
     aut = Autorizacao.query.join(Aluno).filter(Aluno.public_id == pedro).one()
     aut.data_hora = utcnow() - timedelta(hours=3)
@@ -223,7 +223,7 @@ def test_configuracoes_e_upload(client):
 
 def test_editar_passeio_nome_textos_imagem_e_destaque(client):
     token = entrar_admin(client)
-    p = Passeio.query.first()
+    p = Passeio.query.order_by(Passeio.id).first()
     dados = {
         "_csrf": token, "nome": "Passeio ao Museu", "destino": "Museu Nacional", "local_saida": "Escola",
         "data": p.data.isoformat(), "hora_saida": "08:00", "hora_retorno": "12:00",
@@ -263,7 +263,7 @@ def test_galeria_de_ilustracoes_por_evento(client):
     for chave in ILUSTRACOES:
         assert f'value="{chave}"' in html
         assert client.get(f"/static/img/eventos/{chave}.svg").status_code == 200
-    p = Passeio.query.first()
+    p = Passeio.query.order_by(Passeio.id).first()
     dados = {
         "_csrf": token, "nome": p.nome, "destino": p.destino, "local_saida": p.local_saida,
         "data": p.data.isoformat(), "hora_saida": "13:00", "hora_retorno": "18:00",
@@ -294,7 +294,7 @@ def test_responsavel_com_filhos_em_dois_passeios(client):
 def test_revogacao_em_lote_selecionados_e_todos_do_filtro(client):
     from app.models import AutorizacaoHistorico
     token = entrar_admin(client)
-    p = Passeio.query.first()
+    p = Passeio.query.order_by(Passeio.id).first()
     e1 = Escola.query.filter_by(codigo="EM-001").one()
     auts = (Autorizacao.query.join(Aluno).filter(Autorizacao.passeio_id == p.id, Aluno.escola_id == e1.id,
                                                  Autorizacao.situacao == Situacao.AUTORIZADO).limit(3).all())
@@ -329,7 +329,7 @@ def test_revogacao_em_lote_selecionados_e_todos_do_filtro(client):
 
 
 def test_revogacao_em_lote_respeita_escopo_da_escola(client):
-    p = Passeio.query.first()
+    p = Passeio.query.order_by(Passeio.id).first()
     e2 = Escola.query.filter_by(codigo="EM-002").one()
     alheia = (Autorizacao.query.join(Aluno).filter(Autorizacao.passeio_id == p.id, Aluno.escola_id == e2.id,
                                                    Autorizacao.situacao == Situacao.AUTORIZADO).first())

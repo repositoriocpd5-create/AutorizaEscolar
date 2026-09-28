@@ -37,7 +37,7 @@ def upgrade():
         batch_op.add_column(sa.Column('uf', sa.String(length=2), nullable=True))
         batch_op.add_column(sa.Column('cep', sa.String(length=9), nullable=True))
         batch_op.add_column(sa.Column('maps_link', sa.String(length=300), nullable=True))
-        batch_op.add_column(sa.Column('ativo', sa.Boolean(), server_default=sa.text('1'), nullable=False))
+        batch_op.add_column(sa.Column('ativo', sa.Boolean(), server_default=sa.true(), nullable=False))
         batch_op.create_unique_constraint(batch_op.f('uq_escola_inep'), ['inep'])
 
     # ### end Alembic commands ###
