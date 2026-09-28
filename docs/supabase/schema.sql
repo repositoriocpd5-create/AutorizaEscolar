@@ -474,6 +474,41 @@ BEGIN
 END
 $mig$;
 
+-- Migration f7e85f89f1b6
+DO $mig$
+BEGIN
+  IF to_regclass('public.alembic_version') IS NOT NULL AND EXISTS (SELECT 1 FROM alembic_version WHERE version_num = 'ac8442cb4873') THEN
+    -- Running upgrade ac8442cb4873 -> f7e85f89f1b6
+    
+    ALTER TABLE aluno ADD COLUMN id_externo VARCHAR(40);
+    
+    ALTER TABLE aluno ADD COLUMN cpf_hash VARCHAR(64);
+    
+    ALTER TABLE aluno ADD COLUMN cpf_final VARCHAR(2);
+    
+    ALTER TABLE aluno ADD COLUMN ano_letivo INTEGER;
+    
+    ALTER TABLE aluno ADD COLUMN situacao_matricula VARCHAR(20);
+    
+    CREATE INDEX ix_aluno_cpf_hash ON aluno (cpf_hash);
+    
+    ALTER TABLE aluno ADD CONSTRAINT uq_aluno_id_externo UNIQUE (id_externo);
+    
+    ALTER TABLE responsavel ADD COLUMN id_externo VARCHAR(40);
+    
+    ALTER TABLE responsavel ALTER COLUMN cpf_hash DROP NOT NULL;
+    
+    ALTER TABLE responsavel ALTER COLUMN cpf_final DROP NOT NULL;
+    
+    ALTER TABLE responsavel ADD CONSTRAINT uq_responsavel_id_externo UNIQUE (id_externo);
+    
+    ALTER TABLE turma ADD COLUMN segmento VARCHAR(80);
+    
+    UPDATE alembic_version SET version_num='f7e85f89f1b6' WHERE alembic_version.version_num = 'ac8442cb4873';
+  END IF;
+END
+$mig$;
+
 COMMIT;
 
 -- Versão final esperada:

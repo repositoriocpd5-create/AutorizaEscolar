@@ -12,3 +12,8 @@ instance/
 
 # Dados reais da rede (nomes de diretores, e-mails): não versionar em repositório público
 docs/supabase/escolas.sql
+
+# Dados reais de alunos e responsáveis (LGPD): nunca versionar
+csv/
+docs/supabase/alunos*.sql
+*.csv

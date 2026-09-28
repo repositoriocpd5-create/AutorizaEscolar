@@ -230,6 +230,24 @@ O `escolas.sql` também cria "Turma A" para cada ano/série deduzido da modalida
 
 Para rodar os testes num PostgreSQL real: defina `TEST_DATABASE_URL=postgresql://usuario@host:porta/banco_vazio`.
 
+### Importação de alunos e responsáveis (sistema de gestão)
+
+JSON com `aluno_id, nome_aluno, data_nascimento, cpf_aluno, turma, ano_letivo, status_vinculo,
+nome_pai, cpf_pai, nome_mae, cpf_mae` (um registro por aluno):
+
+```powershell
+.\.venv\Scripts\flask --app wsgi sql-alunos arquivo.json docs\supabase\alunos.sql   # SQL para o Supabase
+.\.venv\Scripts\flask --app wsgi importar-alunos arquivo.json --inep 33045372          # direto no DATABASE_URL
+```
+
+No `alunos.sql`, preencha no topo o **INEP** da escola e o **CPF_PEPPER do servidor** (o mesmo do Render):
+o hash do CPF é calculado dentro do banco (pgcrypto), então o pepper não fica em nenhum arquivo.
+Regras: CPFs validados (inválidos descartados com aviso), nunca gravados em claro; responsáveis com CPF
+são únicos (irmãos compartilham o cadastro); sem CPF são cadastrados sem acesso até alguém informar o CPF;
+aluno ativo = "ativo" no ano letivo mais recente; reexecutável sem duplicar.
+**O arquivo de origem e o SQL gerado contêm dados reais (LGPD) e ficam fora do Git.**
+**Nunca altere o `CPF_PEPPER` depois de importar**: os CPFs deixariam de ser encontrados.
+
 ### Responsáveis e alunos
 
 *Admin → Responsáveis*: cadastro, edição e exclusão de responsáveis (CPF validado, único, guardado

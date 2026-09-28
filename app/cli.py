@@ -77,6 +77,32 @@ def registrar_cli(app):
             f.write(escola_service.sql_supabase(dados))
         click.echo(f"SQL gravado em {saida}")
 
+    @app.cli.command("sql-alunos")
+    @click.argument("arquivo", type=click.Path(exists=True, dir_okay=False))
+    @click.argument("saida", type=click.Path(dir_okay=False))
+    def sql_alunos(arquivo, saida):
+        """Gera SQL de alunos + responsáveis (pai/mãe) para o SQL Editor do Supabase.
+        O INEP da escola e o CPF_PEPPER são preenchidos no topo do arquivo antes de rodar."""
+        from .services import importacao_alunos as imp
+        leitura = imp.ler_arquivo(arquivo)
+        with open(saida, "w", encoding="utf-8") as f:
+            f.write(imp.gerar_sql(leitura))
+        click.echo(f"{len(leitura.linhas)} alunos -> {saida} ({len(leitura.avisos)} aviso(s))")
+        for a in leitura.avisos:
+            click.echo(f"  AVISO: {a}")
+
+    @app.cli.command("importar-alunos")
+    @click.argument("arquivo", type=click.Path(exists=True, dir_okay=False))
+    @click.option("--inep", required=True, help="INEP da escola destes alunos.")
+    def importar_alunos(arquivo, inep):
+        """Importa alunos + responsáveis direto no banco configurado (DATABASE_URL)."""
+        from .services import importacao_alunos as imp
+        leitura = imp.ler_arquivo(arquivo)
+        with current_app.test_request_context():
+            res = imp.importar_local(leitura, inep)
+            db.session.commit()
+        click.echo(f"Importados: {res['alunos']} alunos ({res['ativos']} ativos); {len(leitura.avisos)} aviso(s).")
+
     @app.cli.command("limpar-tentativas")
     def limpar():
         """Remove registros antigos de tentativas de acesso (agende diariamente)."""

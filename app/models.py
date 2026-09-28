@@ -84,6 +84,7 @@ class Turma(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     nome = db.Column(db.String(40), nullable=False)       # ex.: "Turma A"
     ano = db.Column(db.String(40), nullable=False)        # ex.: "6º Ano"
+    segmento = db.Column(db.String(80))                   # ex.: "Ensino Fundamental - Anos Iniciais"
     escola_id = db.Column(db.Integer, db.ForeignKey("escola.id"), nullable=False, index=True)
 
     escola = db.relationship("Escola", back_populates="turmas")
@@ -98,8 +99,12 @@ class Responsavel(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     public_id = db.Column(db.String(36), unique=True, nullable=False, default=new_uuid)
     nome = db.Column(db.String(160), nullable=False)
-    cpf_hash = db.Column(db.String(64), unique=True, nullable=False, index=True)
-    cpf_final = db.Column(db.String(2), nullable=False)
+    # CPF: somente HMAC (localização) e 2 dígitos finais (exibição). Pode faltar em
+    # cadastros importados — sem CPF o responsável não acessa até alguém informá-lo.
+    cpf_hash = db.Column(db.String(64), unique=True, index=True)
+    cpf_final = db.Column(db.String(2))
+    # Identificador no sistema de origem (importações), para reimportar sem duplicar.
+    id_externo = db.Column(db.String(40), unique=True)
     # Segundo fator opcional (hash, nunca em claro).
     data_nascimento_hash = db.Column(db.String(64))
     email = db.Column(db.String(160))
@@ -111,7 +116,7 @@ class Responsavel(db.Model):
 
     @property
     def cpf_mascarado(self) -> str:
-        return f"***.***.***-{self.cpf_final}"
+        return f"***.***.***-{self.cpf_final}" if self.cpf_final else "CPF não informado"
 
 
 class Aluno(db.Model):
@@ -125,6 +130,12 @@ class Aluno(db.Model):
     escola_id = db.Column(db.Integer, db.ForeignKey("escola.id"), nullable=False, index=True)
     turma_id = db.Column(db.Integer, db.ForeignKey("turma.id"), nullable=False, index=True)
     ativo = db.Column(db.Boolean, nullable=False, default=True)
+    # Dados vindos do sistema de gestão escolar (importação)
+    id_externo = db.Column(db.String(40), unique=True)
+    cpf_hash = db.Column(db.String(64), index=True)   # CPF do aluno: somente HMAC
+    cpf_final = db.Column(db.String(2))
+    ano_letivo = db.Column(db.Integer)
+    situacao_matricula = db.Column(db.String(20))     # ex.: ativo, desligado
 
     escola = db.relationship("Escola")
     turma = db.relationship("Turma")
