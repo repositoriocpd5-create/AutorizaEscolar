@@ -248,6 +248,13 @@ aluno ativo = "ativo" no ano letivo mais recente; reexecutável sem duplicar.
 **O arquivo de origem e o SQL gerado contêm dados reais (LGPD) e ficam fora do Git.**
 **Nunca altere o `CPF_PEPPER` depois de importar**: os CPFs deixariam de ser encontrados.
 
+### Remover os dados de exemplo
+
+`docs/supabase/remover_demo.sql` (SQL Editor do Supabase) apaga as escolas de exemplo (EM-001/EM-002) e tudo
+que depende delas (alunos, responsáveis, autorizações, documentos, usuários) e passeios sem turmas, mantendo
+os dados reais/importados. O "Passeio ao Cinema" passa a valer para as turmas da escola em `v_inep_passeio`.
+Depois, use `DEMO_MODE=false` no servidor.
+
 ### Responsáveis e alunos
 
 *Admin → Responsáveis*: cadastro, edição e exclusão de responsáveis (CPF validado, único, guardado
