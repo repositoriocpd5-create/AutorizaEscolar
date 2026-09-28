@@ -43,11 +43,10 @@ services:
       # Para produção real: DEMO_MODE=false e AUTH_SEGUNDO_FATOR=data_nascimento.
       - key: DEMO_MODE
         value: "true"
-      - key: DEMO_ADMIN_LOGIN
-        value: admin
-      - key: DEMO_ADMIN_SENHA
-        generateValue: true
-      - key: DEMO_ESCOLA_LOGIN
-        value: escola.exemplo
-      - key: DEMO_ESCOLA_SENHA
-        generateValue: true
+      # Painel administrativo: login pelo Supabase Authentication (sem senhas no sistema)
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_PUBLISHABLE_KEY
+        sync: false
+      - key: ADMIN_EMAILS
+        sync: false   # e-mails que viram administradores da rede no 1º login

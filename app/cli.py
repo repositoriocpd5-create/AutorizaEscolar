@@ -25,22 +25,32 @@ def registrar_cli(app):
         click.echo("Dados de demonstração criados.")
 
     @app.cli.command("criar-admin")
-    @click.option("--login", prompt=True)
     @click.option("--nome", prompt=True)
+    @click.option("--email", default="", help="E-mail do Supabase Authentication (modo Supabase: sem senha local).")
+    @click.option("--login", default="", help="Login local (somente sem Supabase).")
     @click.option("--escola", default="", help="Código da escola (vazio = acesso a toda a rede).")
-    def criar_admin(login, nome, escola):
-        """Cria um usuário administrativo."""
-        senha = getpass.getpass("Senha (mín. 10 caracteres): ")
-        if len(senha) < 10:
-            raise click.ClickException("Senha muito curta.")
+    def criar_admin(nome, email, login, escola):
+        """Autoriza um usuário no painel administrativo."""
+        from .services.admin_auth_service import modo_supabase
         esc = Escola.query.filter_by(codigo=escola).first() if escola else None
         if escola and esc is None:
             raise click.ClickException("Escola não encontrada.")
-        adm = AdminUsuario(login=login, nome=nome, escola_id=esc.id if esc else None)
-        adm.definir_senha(senha)
+        if modo_supabase():
+            if not email:
+                raise click.ClickException("Informe --email (a senha é gerenciada no Supabase Authentication).")
+            adm = AdminUsuario(login=email.lower()[:60], email=email.lower(), nome=nome,
+                               escola_id=esc.id if esc else None)
+        else:
+            if not login:
+                raise click.ClickException("Informe --login.")
+            senha = getpass.getpass("Senha (mín. 10 caracteres): ")
+            if len(senha) < 10:
+                raise click.ClickException("Senha muito curta.")
+            adm = AdminUsuario(login=login, nome=nome, escola_id=esc.id if esc else None)
+            adm.definir_senha(senha)
         db.session.add(adm)
         db.session.commit()
-        click.echo("Administrador criado.")
+        click.echo("Administrador autorizado.")
 
     @app.cli.command("limpar-tentativas")
     def limpar():
