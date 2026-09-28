@@ -1,0 +1,69 @@
+{% extends "admin/base_admin.html" %}
+{% import "components/ui.html" as ui with context %}
+{% import "admin/_admin_ui.html" as aui with context %}
+{% import "admin/_usuario_campos.html" as uc %}
+{% block title %}Editar usuário{% endblock %}
+{% block content %}
+<a class="btn btn--ghost btn--sm" href="{{ url_for('admin.usuarios') }}">{{ ui.icon('arrow-left') }}Voltar</a>
+<div class="page-head">
+  <div>
+    <h1 class="page-title">{{ u.nome }}</h1>
+    <p class="muted"><code>{{ u.email or u.login }}</code> ·
+      {% if u.ativo %}<span class="badge badge--ok">{{ ui.icon('check') }}Ativo</span>{% else %}<span class="badge badge--denied">{{ ui.icon('ban') }}Inativo</span>{% endif %}</p>
+  </div>
+</div>
+{% if erro %}<div class="alert alert--error" role="alert">{{ erro }}</div>{% endif %}
+
+<form method="post" class="card form-grid js-form-usuario">
+  <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+  <h2 class="card-title span-2">Perfil e acesso</h2>
+  <label class="span-2">Nome<input name="nome" class="input" required maxlength="120" value="{{ u.nome }}"></label>
+  {% if proprio %}
+  <p class="aviso span-2">{{ ui.icon('info') }}<span>Você não pode alterar o próprio perfil, escopo ou permissões — peça a outro administrador.</span></p>
+  {% endif %}
+  {{ uc.campos_acesso(ui, u.perfil, u.escola_id, u.lista_permissoes, escolas, PERMISSOES, PERMISSOES_SOMENTE_REDE, Perfil, bloqueado=proprio) }}
+  <div class="span-2 form-actions"><button class="btn btn--primary">Salvar alterações</button></div>
+</form>
+
+<section class="card">
+  <h2 class="card-title">Senha</h2>
+  {% if modo_supabase %}
+    <p class="small muted">A senha fica no Supabase Authentication; o sistema não a armazena.</p>
+    <div class="grid-2">
+      <form method="post" action="{{ url_for('admin.usuario_senha', uid=u.id) }}" class="stack js-confirm"
+            data-confirm="Enviar o link de redefinição de senha para {{ u.email }}?">
+        <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+        <input type="hidden" name="modo" value="link">
+        <p class="small">O usuário recebe um e-mail do Supabase para criar uma nova senha.</p>
+        <button class="btn btn--outline">{{ ui.icon('file') }}Enviar link de redefinição</button>
+      </form>
+      <form method="post" action="{{ url_for('admin.usuario_senha', uid=u.id) }}" class="stack">
+        <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+        <input type="hidden" name="modo" value="definir">
+        <label>Definir nova senha agora (mín. 10 caracteres)
+          <input type="password" name="senha" class="input" minlength="10" autocomplete="new-password" required {% if not supabase_admin_ok %}disabled{% endif %}></label>
+        <button class="btn btn--secondary" {% if not supabase_admin_ok %}disabled{% endif %}>Definir senha</button>
+        {% if not supabase_admin_ok %}<small class="muted">Requer SUPABASE_SECRET_KEY no servidor.</small>{% endif %}
+      </form>
+    </div>
+  {% else %}
+    <form method="post" action="{{ url_for('admin.usuario_senha', uid=u.id) }}" class="inline-form inline-form--senha">
+      <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+      <input type="password" name="senha" class="input" placeholder="Nova senha" minlength="10" autocomplete="new-password" required>
+      <button class="btn btn--outline btn--sm">Redefinir</button>
+    </form>
+  {% endif %}
+</section>
+
+{% if not proprio %}
+<section class="card {{ 'card--danger' if u.ativo }}">
+  <h2 class="card-title">{{ 'Desativar acesso' if u.ativo else 'Reativar acesso' }}</h2>
+  <p class="small muted">{% if u.ativo %}O usuário perde o acesso ao painel imediatamente{% if modo_supabase and supabase_admin_ok %} e é bloqueado no Supabase Authentication{% endif %}. O histórico é mantido.{% else %}O usuário volta a acessar o painel com o perfil e as permissões atuais.{% endif %}</p>
+  <form method="post" action="{{ url_for('admin.usuario_ativo', uid=u.id) }}" class="js-confirm"
+        data-confirm="{{ 'Desativar' if u.ativo else 'Reativar' }} o acesso de {{ u.email or u.login }}?">
+    <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+    <button class="btn {{ 'btn--danger' if u.ativo else 'btn--primary' }}">{{ ui.icon('ban' if u.ativo else 'check') }}{{ 'Desativar' if u.ativo else 'Reativar' }}</button>
+  </form>
+</section>
+{% endif %}
+{% endblock %}

@@ -55,7 +55,7 @@
   {% else %}<p class="muted">O responsável ainda não respondeu.</p>{% endif %}
 </section>
 
-{% if aut and aut.situacao != 'CANCELADO' %}
+{% if aut and aut.situacao != 'CANCELADO' and admin.pode('revogar') %}
 <section class="card card--danger" id="revogar">
   <h2 class="card-title">Revogar autorização</h2>
   <p class="small muted">A unidade escolar pode revogar a resposta quando necessário (ex.: pedido presencial do responsável, restrição médica, questão disciplinar). O histórico é mantido, o documento anterior passa a constar como substituído na validação e o responsável poderá responder novamente dentro do prazo.</p>

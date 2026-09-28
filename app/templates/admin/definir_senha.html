@@ -1,0 +1,23 @@
+{% extends "admin/base_admin.html" %}
+{% import "components/ui.html" as ui with context %}
+{% import "admin/_admin_ui.html" as aui with context %}
+{% block title %}Definir senha{% endblock %}
+{% block content %}
+<section class="card narrow narrow--sm js-definir-senha" data-url="{{ supabase_url }}" data-key="{{ supabase_key }}">
+  <h1 class="card-title">Definir senha de acesso</h1>
+  <div class="alert alert--error js-erro" role="alert" hidden></div>
+  <div class="alert alert--success js-ok" role="status" hidden>
+    Senha definida com sucesso. <a href="{{ url_for('admin.login') }}">Entrar no painel</a>
+  </div>
+  <form class="stack js-form" hidden>
+    <p class="muted small js-email"></p>
+    <label for="nova">Nova senha (mín. 10 caracteres)</label>
+    <input id="nova" type="password" class="input input--lg" minlength="10" autocomplete="new-password" required>
+    <label for="confirma">Repita a nova senha</label>
+    <input id="confirma" type="password" class="input input--lg" minlength="10" autocomplete="new-password" required>
+    <button class="btn btn--primary btn--lg btn--block">Salvar senha</button>
+  </form>
+  <p class="muted small js-sem-token" hidden>Abra esta página pelo link recebido por e-mail (convite ou redefinição de senha).</p>
+</section>
+{% endblock %}
+{% block scripts %}<script src="{{ url_for('static', filename='js/definir-senha.js') }}"></script>{% endblock %}

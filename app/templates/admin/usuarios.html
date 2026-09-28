@@ -1,40 +1,53 @@
 {% extends "admin/base_admin.html" %}
 {% import "components/ui.html" as ui with context %}
 {% import "admin/_admin_ui.html" as aui with context %}
+{% import "admin/_usuario_campos.html" as uc %}
 {% block title %}Usuários{% endblock %}
 {% block content %}
-<h1 class="page-title">Usuários do painel</h1>
-<p class="muted">Usuários da <strong>rede</strong> veem todas as escolas e gerenciam passeios e configurações.
-  Usuários de uma <strong>unidade escolar</strong> veem apenas os próprios alunos e podem revogar autorizações deles.</p>
-{% if modo_supabase %}
-<p class="aviso">{{ ui.icon('info') }}<span>As senhas são gerenciadas no <strong>Supabase → Authentication → Users</strong>.
-  Para dar acesso, crie o usuário lá (ou convide por e-mail) e cadastre o mesmo e-mail aqui, definindo se ele é da rede ou de uma escola.</span></p>
+<div class="page-head">
+  <div>
+    <h1 class="page-title">Usuários do painel</h1>
+    <p class="muted">Defina quem acessa o painel, com qual perfil e em qual escopo (toda a rede ou uma escola).</p>
+  </div>
+  <a class="btn btn--primary" href="#novo-usuario">{{ ui.icon('plus') }}Novo usuário</a>
+</div>
+
+{% if modo_supabase and not supabase_admin_ok %}
+<p class="aviso aviso--warn">{{ ui.icon('info') }}<span>Para <strong>criar contas, enviar convites, definir senhas e bloquear no Supabase</strong> por aqui,
+  configure a variável <code>SUPABASE_SECRET_KEY</code> no servidor (Supabase → Project Settings → API Keys → Secret key).
+  Sem ela, cadastre aqui usuários que já existem em Supabase → Authentication → Users.</span></p>
 {% endif %}
 
 <div class="table-wrap">
 <table class="data-table">
-  <thead><tr><th>Nome</th><th>{{ 'E-mail' if modo_supabase else 'Usuário' }}</th><th>Acesso</th><th>Situação</th><th>Ações</th></tr></thead>
+  <thead><tr><th>Nome</th><th>{{ 'E-mail' if modo_supabase else 'Usuário' }}</th><th>Perfil</th><th>Escopo</th><th>Permissões</th><th>Situação</th><th>Ações</th></tr></thead>
   <tbody>
   {% for u in lista %}
-  <tr>
+  <tr{% if not u.ativo %} class="is-inativo"{% endif %}>
     <td data-label="Nome"><strong>{{ u.nome }}</strong>{% if u.id == admin.id %} <span class="muted small">(você)</span>{% endif %}</td>
     <td data-label="{{ 'E-mail' if modo_supabase else 'Usuário' }}"><code>{{ u.email or u.login }}</code></td>
-    <td data-label="Acesso">{{ u.escola.nome if u.escola else 'Toda a rede' }}</td>
-    <td data-label="Situação">{% if u.ativo %}<span class="badge badge--ok">{{ ui.icon('check') }}Ativo</span>{% else %}<span class="badge badge--closed">Inativo</span>{% endif %}</td>
+    <td data-label="Perfil">
+      {% if u.perfil == Perfil.ADMIN %}<span class="badge badge--pending">{{ ui.icon('shield') }}Administrador</span>
+      {% else %}<span class="badge badge--closed">{{ ui.icon('users') }}Comum</span>{% endif %}
+    </td>
+    <td data-label="Escopo">{{ u.escola.nome if u.escola else 'Toda a rede' }}</td>
+    <td data-label="Permissões" class="small">
+      {% set efetivas = u.permissoes_efetivas %}
+      {% if u.perfil == Perfil.ADMIN and not u.escola_id %}Todas{% elif efetivas %}{{ efetivas|join(', ') }}{% else %}<span class="muted">Somente consulta</span>{% endif %}
+    </td>
+    <td data-label="Situação">{% if u.ativo %}<span class="badge badge--ok">{{ ui.icon('check') }}Ativo</span>{% else %}<span class="badge badge--denied">{{ ui.icon('ban') }}Inativo</span>{% endif %}</td>
     <td data-label="Ações">
       <div class="row-actions">
-        {% if not modo_supabase %}
-        <form method="post" action="{{ url_for('admin.usuario_senha', uid=u.id) }}" class="inline-form inline-form--senha">
-          <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
-          <label class="sr-only" for="senha-{{ u.id }}">Nova senha para {{ u.login }}</label>
-          <input id="senha-{{ u.id }}" type="password" name="senha" class="input input--sm" placeholder="Nova senha" minlength="10" autocomplete="new-password" required>
-          <button class="btn btn--outline btn--xs">Redefinir</button>
-        </form>
-        {% endif %}
+        <a class="btn btn--outline btn--xs" href="{{ url_for('admin.usuario_editar', uid=u.id) }}">{{ ui.icon('edit') }}Editar</a>
         {% if u.id != admin.id %}
-        <form method="post" action="{{ url_for('admin.usuario_ativo', uid=u.id) }}" class="inline-form">
+        <form method="post" action="{{ url_for('admin.usuario_ativo', uid=u.id) }}" class="inline-form js-confirm"
+              data-confirm="{{ ('Desativar' if u.ativo else 'Reativar') }} o acesso de {{ u.email or u.login }}?">
           <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
-          <button class="btn btn--ghost btn--xs">{{ 'Desativar' if u.ativo else 'Ativar' }}</button>
+          {% if u.ativo %}
+            <button class="btn btn--ghost btn--xs btn--danger-text">{{ ui.icon('ban') }}Desativar</button>
+          {% else %}
+            <button class="btn btn--ghost btn--xs">{{ ui.icon('check') }}Ativar</button>
+          {% endif %}
         </form>
         {% endif %}
       </div>
@@ -45,26 +58,47 @@
 </table>
 </div>
 
-<section class="card form-grid mt-1">
-  <h2 class="card-title span-2">Novo usuário</h2>
-  {% if erro %}<div class="alert alert--error span-2" role="alert">{{ erro }}</div>{% endif %}
-  <form method="post" class="form-grid span-2">
+<section class="card mt-1" id="novo-usuario">
+  <h2 class="card-title">Novo usuário</h2>
+  {% if erro %}<div class="alert alert--error" role="alert">{{ erro }}</div>{% endif %}
+  <form method="post" class="form-grid js-form-usuario">
     <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
     <label>Nome<input name="nome" class="input" required maxlength="120" value="{{ form.get('nome', '') }}"></label>
     {% if modo_supabase %}
-    <label>E-mail (o mesmo do Supabase Authentication)<input name="login" type="email" class="input" required maxlength="160" autocomplete="off" value="{{ form.get('login', '') }}"></label>
+    <label>E-mail<input name="login" type="email" class="input" required maxlength="160" autocomplete="off" value="{{ form.get('login', '') }}"></label>
     {% else %}
     <label>Usuário (login)<input name="login" class="input" required maxlength="60" autocomplete="off" value="{{ form.get('login', '') }}"></label>
     {% endif %}
-    <label>Acesso
-      <select name="escola_id" class="input">
-        <option value="">Toda a rede</option>
-        {% for e in escolas %}<option value="{{ e.id }}" {% if form.get('escola_id') == e.id|string %}selected{% endif %}>{{ e.nome }}</option>{% endfor %}
-      </select></label>
-    {% if not modo_supabase %}
+
+    {{ uc.campos_acesso(ui, form.get('perfil', Perfil.COMUM), (form.get('escola_id')|int) if form.get('escola_id') else None,
+                        form.getlist('permissoes') if form else PERMISSOES_PADRAO_COMUM, escolas, PERMISSOES,
+                        PERMISSOES_SOMENTE_REDE, Perfil) }}
+
+    {% if modo_supabase %}
+    <fieldset class="span-2 perfil-grupo js-criacao">
+      <legend>Conta no Supabase Authentication</legend>
+      {% set criacao = form.get('criacao', 'convite' if supabase_admin_ok else 'existente') %}
+      <div class="perfil-opcoes perfil-opcoes--3">
+        <label class="perfil-opcao{% if not supabase_admin_ok %} is-desabilitado{% endif %}">
+          <input type="radio" name="criacao" value="convite" {% if criacao == 'convite' %}checked{% endif %} {% if not supabase_admin_ok %}disabled{% endif %}>
+          <span><strong>Enviar convite</strong><small>O usuário recebe um e-mail e cria a própria senha.</small></span>
+        </label>
+        <label class="perfil-opcao{% if not supabase_admin_ok %} is-desabilitado{% endif %}">
+          <input type="radio" name="criacao" value="senha" {% if criacao == 'senha' %}checked{% endif %} {% if not supabase_admin_ok %}disabled{% endif %}>
+          <span><strong>Definir senha inicial</strong><small>Você define a senha e a entrega ao usuário.</small></span>
+        </label>
+        <label class="perfil-opcao">
+          <input type="radio" name="criacao" value="existente" {% if criacao == 'existente' %}checked{% endif %}>
+          <span><strong>Já existe no Supabase</strong><small>Apenas autoriza o e-mail no painel.</small></span>
+        </label>
+      </div>
+      <label class="js-senha-inicial">Senha inicial (mín. 10 caracteres)
+        <input name="senha" type="password" class="input" minlength="10" autocomplete="new-password"></label>
+    </fieldset>
+    {% else %}
     <label>Senha inicial (mín. 10 caracteres)<input name="senha" type="password" class="input" required minlength="10" autocomplete="new-password"></label>
     {% endif %}
-    <div class="span-2 form-actions"><button class="btn btn--primary">{{ ui.icon('plus') }}Criar usuário</button></div>
+    <div class="span-2 form-actions"><button class="btn btn--primary">{{ ui.icon('plus') }}Cadastrar usuário</button></div>
   </form>
 </section>
 {% endblock %}

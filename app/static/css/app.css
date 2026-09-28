@@ -454,6 +454,39 @@ label { font-weight: 600; }
 .print-table th { background: #eef2f7; }
 
 .mt-1 { margin-top: 1rem; }
+.turmas-lista { display: flex; flex-wrap: wrap; gap: .5rem; }
+.turma-chip {
+  display: inline-flex; align-items: center; gap: .25rem; padding: .25rem .25rem .25rem .75rem; margin: 0;
+  border: 1px solid var(--borda); border-radius: 999px; background: #fff; font-size: .875rem;
+}
+.icon-btn--sm { width: 30px; height: 30px; color: var(--texto-suave); border: 0; background: none; cursor: pointer; }
+.icon-btn--sm:hover { background: var(--vermelho-claro); color: var(--vermelho); }
+.turmas-grid--anos { padding-left: 0; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); }
+.card--sub { background: #f8fafc; box-shadow: none; margin: 0; }
+.card--sub .card-title { display: flex; flex-wrap: nowrap; gap: .4rem; align-items: center; font-size: 1rem; }
+.grid-largo { display: grid; gap: 1rem; }
+@media (min-width: 1100px) { .grid-largo { grid-template-columns: 1fr 1.3fr; align-items: start; } }
+.check--center { align-self: end; min-height: 48px; }
+.input--inline { width: auto; min-height: 40px; font-size: .9375rem; }
+.perfil-grupo { border: 0; padding: 0; margin: 0; min-width: 0; display: grid; gap: .6rem; }
+.perfil-grupo legend { font-weight: 700; margin-bottom: .4rem; }
+.perfil-opcoes { display: grid; gap: .6rem; }
+.perfil-opcao, .form-grid .perfil-opcao {
+  position: relative; display: flex; gap: .7rem; align-items: flex-start; padding: .8rem .9rem;
+  border: 2px solid var(--borda); border-radius: 12px; background: #fff; cursor: pointer; font-weight: 400;
+}
+.perfil-opcao input { margin-top: .25rem; width: 18px; height: 18px; accent-color: var(--azul); flex: none; }
+.perfil-opcao strong { display: flex; align-items: center; gap: .35rem; }
+.perfil-opcao small { display: block; color: var(--texto-suave); margin-top: .15rem; }
+.perfil-opcao:has(input:checked) { border-color: var(--azul); background: var(--azul-claro); }
+.perfil-opcao.is-desabilitado, label.is-desabilitado { opacity: .55; cursor: not-allowed; }
+.js-permissoes.is-admin legend::after { content: " — Administrador tem todas as permissões do seu escopo"; font-weight: 400; color: var(--texto-suave); font-size: .875rem; }
+fieldset[disabled] { opacity: .75; }
+.data-table tr.is-inativo td { background: #f6f7f9; color: var(--texto-suave); }
+@media (min-width: 700px) {
+  .perfil-opcoes { grid-template-columns: 1fr 1fr; }
+  .perfil-opcoes--3 { grid-template-columns: repeat(3, 1fr); }
+}
 .bulk-bar {
   position: sticky; top: 72px; z-index: 12; display: flex; flex-wrap: wrap; align-items: center; gap: .5rem .75rem;
   margin-bottom: .6rem; padding: .6rem .9rem; border-radius: var(--raio-sm);

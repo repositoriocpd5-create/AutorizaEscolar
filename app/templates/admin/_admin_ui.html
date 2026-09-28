@@ -71,8 +71,8 @@
 {%- endmacro %}
 
 {# ---------- DataTable (com seleção para revogação em lote) ---------- #}
-{% macro data_table(linhas, passeio, filtros=None, total_revogaveis=0) -%}
-{% set revogaveis = ('AUTORIZADO', 'NAO_AUTORIZADO') %}
+{% macro data_table(linhas, passeio, filtros=None, total_revogaveis=0, pode_revogar=True) -%}
+{% set revogaveis = ('AUTORIZADO', 'NAO_AUTORIZADO') if pode_revogar else () %}
 <form method="post" action="{{ url_for('admin.revogar_lote') }}" class="js-revogacao" id="form-revogacao">
   <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
   <input type="hidden" name="passeio" value="{{ passeio.public_id }}">
@@ -80,6 +80,7 @@
   <input type="hidden" name="todos_filtrados" value="0" class="js-todos-filtrados">
   {% if filtros %}{% for k in ('q', 'escola', 'ano', 'turma', 'situacao') %}<input type="hidden" name="f_{{ k }}" value="{{ filtros[k] }}">{% endfor %}{% endif %}
 
+  {% if pode_revogar %}
   <div class="bulk-bar" role="region" aria-label="Ações em lote" hidden>
     <span class="bulk-bar__count" aria-live="polite"><strong class="js-qtd">0</strong> selecionado(s)</span>
     <button type="button" class="btn btn--link btn--sm js-todos-filtro" hidden>Selecionar todos os {{ total_revogaveis }} revogáveis do filtro</button>
@@ -87,11 +88,12 @@
     <button type="button" class="btn btn--ghost btn--sm js-limpar-selecao">Limpar seleção</button>
     <button type="button" class="btn btn--danger btn--sm js-abrir-revogacao">{{ ui.icon('ban') }}Revogar selecionados</button>
   </div>
+  {% endif %}
 
 <div class="table-wrap">
 <table class="data-table data-table--selecao">
   <thead><tr>
-    <th scope="col" class="col-check"><input type="checkbox" class="js-marcar-pagina" aria-label="Selecionar todos os revogáveis desta página"></th>
+    <th scope="col" class="col-check">{% if pode_revogar %}<input type="checkbox" class="js-marcar-pagina" aria-label="Selecionar todos os revogáveis desta página">{% endif %}</th>
     <th scope="col">Aluno</th><th scope="col">Turma</th><th scope="col">Responsável</th>
     <th scope="col">Situação</th><th scope="col">Data</th><th scope="col">Documento</th>
   </tr></thead>
@@ -125,6 +127,7 @@
 </table>
 </div>
 
+  {% if pode_revogar %}
   <dialog class="modal" id="modal-revogar" aria-labelledby="revogar-titulo">
     <div class="modal__box">
       <h2 id="revogar-titulo" class="modal__title">Revogar autorização</h2>
@@ -143,6 +146,7 @@
       </div>
     </div>
   </dialog>
+  {% endif %}
 </form>
 {%- endmacro %}
 

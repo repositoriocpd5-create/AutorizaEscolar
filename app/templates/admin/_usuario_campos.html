@@ -1,0 +1,37 @@
+{# Campos de perfil, escopo e permissões (cadastro e edição de usuário) #}
+{% macro campos_acesso(ui, perfil, escola_id, permissoes, escolas, PERMISSOES, PERMISSOES_SOMENTE_REDE, Perfil, bloqueado=False) -%}
+<fieldset class="span-2 perfil-grupo js-perfil" {% if bloqueado %}disabled{% endif %}>
+  <legend>Perfil</legend>
+  <div class="perfil-opcoes">
+    <label class="perfil-opcao">
+      <input type="radio" name="perfil" value="{{ Perfil.ADMIN }}" {% if perfil == Perfil.ADMIN %}checked{% endif %}>
+      <span><strong>{{ ui.icon('shield') }}Administrador</strong>
+        <small>Acesso completo. Se vinculado a uma escola, administra apenas aquela escola.</small></span>
+    </label>
+    <label class="perfil-opcao">
+      <input type="radio" name="perfil" value="{{ Perfil.COMUM }}" {% if perfil != Perfil.ADMIN %}checked{% endif %}>
+      <span><strong>{{ ui.icon('users') }}Comum</strong>
+        <small>Consulta o painel e usa somente as permissões marcadas abaixo.</small></span>
+    </label>
+  </div>
+</fieldset>
+
+<label class="span-2">Escopo de acesso
+  <select name="escola_id" class="input js-escopo" {% if bloqueado %}disabled{% endif %}>
+    <option value="">Toda a rede (todas as escolas)</option>
+    {% for e in escolas %}<option value="{{ e.id }}" {% if escola_id == e.id %}selected{% endif %}>Somente: {{ e.nome }}</option>{% endfor %}
+  </select>
+  <small class="muted">Usuários de uma escola veem e agem apenas sobre os alunos dessa escola.</small>
+</label>
+
+<fieldset class="span-2 checks js-permissoes" {% if bloqueado %}disabled{% endif %}>
+  <legend>Permissões (perfil Comum)</legend>
+  <p class="small muted">Todos podem consultar o painel, os alunos e os documentos. Marque o que mais este usuário pode fazer:</p>
+  {% for chave, rotulo in PERMISSOES.items() %}
+  <label class="check" {% if chave in PERMISSOES_SOMENTE_REDE %}data-somente-rede{% endif %}>
+    <input type="checkbox" name="permissoes" value="{{ chave }}" {% if chave in permissoes %}checked{% endif %}>
+    {{ rotulo }}{% if chave in PERMISSOES_SOMENTE_REDE %} <span class="muted small">(somente usuários da rede)</span>{% endif %}
+  </label>
+  {% endfor %}
+</fieldset>
+{%- endmacro %}

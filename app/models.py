@@ -49,9 +49,34 @@ class Escola(db.Model):
     __tablename__ = "escola"
     id = db.Column(db.Integer, primary_key=True)
     nome = db.Column(db.String(160), nullable=False)
-    codigo = db.Column(db.String(30), unique=True, nullable=False)
+    codigo = db.Column(db.String(30), unique=True, nullable=False)  # código interno (padrão: INEP)
+    inep = db.Column(db.String(8), unique=True)
+    cnpj = db.Column(db.String(18))
+    email = db.Column(db.String(160))
+    telefone = db.Column(db.String(30))
+    ramal = db.Column(db.String(10))
+    diretor = db.Column(db.String(160))
+    vice_diretor = db.Column(db.String(160))
+    modalidade = db.Column(db.String(120))   # ex.: "Pré ao 9º Ano"
+    turno = db.Column(db.String(40))         # ex.: "Integral", "M / T"
+    qtd_salas = db.Column(db.Integer)
+    logradouro = db.Column(db.String(200))
+    numero = db.Column(db.String(20))
+    complemento = db.Column(db.String(120))
+    bairro = db.Column(db.String(120))
+    cidade = db.Column(db.String(80))
+    uf = db.Column(db.String(2))
+    cep = db.Column(db.String(9))
+    maps_link = db.Column(db.String(300))
+    ativo = db.Column(db.Boolean, nullable=False, default=True, server_default=db.true())
 
     turmas = db.relationship("Turma", back_populates="escola", order_by="Turma.ano, Turma.nome")
+
+    @property
+    def endereco(self) -> str:
+        partes = [self.logradouro, self.numero and f"nº {self.numero}", self.complemento, self.bairro,
+                  self.cidade and (self.cidade + (f"/{self.uf}" if self.uf else "")), self.cep and f"CEP {self.cep}"]
+        return ", ".join(p for p in partes if p)
 
 
 class Turma(db.Model):
@@ -59,6 +84,7 @@ class Turma(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     nome = db.Column(db.String(40), nullable=False)       # ex.: "Turma A"
     ano = db.Column(db.String(40), nullable=False)        # ex.: "6º Ano"
+    segmento = db.Column(db.String(80))                   # ex.: "Ensino Fundamental - Anos Iniciais"
     escola_id = db.Column(db.Integer, db.ForeignKey("escola.id"), nullable=False, index=True)
 
     escola = db.relationship("Escola", back_populates="turmas")
@@ -73,8 +99,12 @@ class Responsavel(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     public_id = db.Column(db.String(36), unique=True, nullable=False, default=new_uuid)
     nome = db.Column(db.String(160), nullable=False)
-    cpf_hash = db.Column(db.String(64), unique=True, nullable=False, index=True)
-    cpf_final = db.Column(db.String(2), nullable=False)
+    # CPF: somente HMAC (localização) e 2 dígitos finais (exibição). Pode faltar em
+    # cadastros importados — sem CPF o responsável não acessa até alguém informá-lo.
+    cpf_hash = db.Column(db.String(64), unique=True, index=True)
+    cpf_final = db.Column(db.String(2))
+    # Identificador no sistema de origem (importações), para reimportar sem duplicar.
+    id_externo = db.Column(db.String(40), unique=True)
     # Segundo fator opcional (hash, nunca em claro).
     data_nascimento_hash = db.Column(db.String(64))
     email = db.Column(db.String(160))
@@ -86,7 +116,7 @@ class Responsavel(db.Model):
 
     @property
     def cpf_mascarado(self) -> str:
-        return f"***.***.***-{self.cpf_final}"
+        return f"***.***.***-{self.cpf_final}" if self.cpf_final else "CPF não informado"
 
 
 class Aluno(db.Model):
@@ -100,6 +130,12 @@ class Aluno(db.Model):
     escola_id = db.Column(db.Integer, db.ForeignKey("escola.id"), nullable=False, index=True)
     turma_id = db.Column(db.Integer, db.ForeignKey("turma.id"), nullable=False, index=True)
     ativo = db.Column(db.Boolean, nullable=False, default=True)
+    # Dados vindos do sistema de gestão escolar (importação)
+    id_externo = db.Column(db.String(40), unique=True)
+    cpf_hash = db.Column(db.String(64), index=True)   # CPF do aluno: somente HMAC
+    cpf_final = db.Column(db.String(2))
+    ano_letivo = db.Column(db.Integer)
+    situacao_matricula = db.Column(db.String(20))     # ex.: ativo, desligado
 
     escola = db.relationship("Escola")
     turma = db.relationship("Turma")
@@ -292,6 +328,28 @@ class ProtocoloSequencia(db.Model):
 # ---------------------------------------------------------------------------
 # Administração, auditoria e segurança
 # ---------------------------------------------------------------------------
+class Perfil:
+    ADMIN = "ADMIN"    # todas as permissões (respeitando o escopo)
+    COMUM = "COMUM"    # somente as permissões marcadas
+    ROTULOS = {ADMIN: "Administrador", COMUM: "Comum"}
+
+
+# Permissões do painel. Ver o painel, o detalhe do aluno e os PDFs é permitido a todos.
+PERMISSOES = {
+    "revogar": "Revogar autorizações",
+    "exportar": "Exportar e imprimir relatórios",
+    "auditoria": "Ver registro de auditoria",
+    "passeios": "Cadastrar e editar passeios",
+    "configuracoes": "Alterar configurações gerais",
+    "usuarios": "Gerenciar usuários",
+    "cadastros": "Cadastrar responsáveis e alunos",
+    "escolas": "Cadastrar escolas e turmas",
+}
+# Permissões que só valem para usuários com escopo de REDE (sem escola).
+PERMISSOES_SOMENTE_REDE = {"auditoria", "passeios", "configuracoes", "usuarios", "escolas"}
+PERMISSOES_PADRAO_COMUM = {"exportar"}
+
+
 class AdminUsuario(db.Model):
     __tablename__ = "admin_usuario"
     id = db.Column(db.Integer, primary_key=True)
@@ -299,11 +357,16 @@ class AdminUsuario(db.Model):
     login = db.Column(db.String(60), unique=True, nullable=False)
     # E-mail do Supabase Authentication (modo Supabase). Senha fica só no Supabase.
     email = db.Column(db.String(160), unique=True)
+    # Identificador do usuário no Supabase Auth (preenchido no cadastro ou no 1º login).
+    supabase_id = db.Column(db.String(40))
     # Somente no modo local (desenvolvimento/testes).
     senha_hash = db.Column(db.String(256))
     # None = acesso a toda a rede; preenchido = restrito à escola.
     escola_id = db.Column(db.Integer, db.ForeignKey("escola.id"))
+    perfil = db.Column(db.String(10), nullable=False, default=Perfil.ADMIN, server_default=Perfil.ADMIN)
+    permissoes = db.Column(db.String(200), nullable=False, default="", server_default="")  # CSV (perfil COMUM)
     ativo = db.Column(db.Boolean, nullable=False, default=True)
+    criado_em = db.Column(db.DateTime, default=utcnow)
 
     escola = db.relationship("Escola")
 
@@ -312,6 +375,28 @@ class AdminUsuario(db.Model):
 
     def conferir_senha(self, senha: str) -> bool:
         return bool(self.senha_hash) and check_password_hash(self.senha_hash, senha)
+
+    @property
+    def lista_permissoes(self) -> set[str]:
+        return {p for p in (self.permissoes or "").split(",") if p in PERMISSOES}
+
+    def definir_permissoes(self, perms) -> None:
+        self.permissoes = ",".join(sorted(p for p in set(perms) if p in PERMISSOES))
+
+    def pode(self, permissao: str) -> bool:
+        if not self.ativo or permissao not in PERMISSOES:
+            return False
+        if permissao in PERMISSOES_SOMENTE_REDE and self.escola_id:
+            return False
+        return self.perfil == Perfil.ADMIN or permissao in self.lista_permissoes
+
+    @property
+    def permissoes_efetivas(self) -> list[str]:
+        return [PERMISSOES[p] for p in PERMISSOES if self.pode(p)]
+
+    @property
+    def perfil_rotulo(self) -> str:
+        return Perfil.ROTULOS.get(self.perfil, self.perfil)
 
 
 class AuditLog(db.Model):

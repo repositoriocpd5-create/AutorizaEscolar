@@ -24,8 +24,10 @@ services:
       # Segredos gerados pelo Render (nunca versionados)
       - key: SECRET_KEY
         generateValue: true
+      # Informado manualmente: deve ser o MESMO usado nas importações (alunos.sql)
+      # e nunca mudar depois que houver responsáveis cadastrados.
       - key: CPF_PEPPER
-        generateValue: true
+        sync: false
       # HTTPS atrás do proxy do Render
       - key: PROXY_FIX
         value: "true"
@@ -48,5 +50,7 @@ services:
         sync: false
       - key: SUPABASE_PUBLISHABLE_KEY
         sync: false
+      - key: SUPABASE_SECRET_KEY
+        sync: false   # opcional: criar/convidar/bloquear usuários pelo painel
       - key: ADMIN_EMAILS
         sync: false   # e-mails que viram administradores da rede no 1º login

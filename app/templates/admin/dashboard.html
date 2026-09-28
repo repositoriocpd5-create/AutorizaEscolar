@@ -15,7 +15,7 @@
     <p class="muted">{{ passeio.destino }} · {{ passeio.data|data_br }} · saída {{ passeio.hora_saida|hora_br }} ·
       {% if estado.aberto %}respostas até {{ passeio.data_limite|data_hora_local_br }}{% elif estado.encerrado %}passeio encerrado{% else %}prazo encerrado{% endif %}</p>
   </div>
-  {{ aui.report_export(passeio, 'geral', filtros) }}
+  {% if admin.pode('exportar') %}{{ aui.report_export(passeio, 'geral', filtros) }}{% endif %}
 </div>
 
 <section class="stats" aria-label="Indicadores">
@@ -33,7 +33,7 @@
 {{ aui.filter_bar(passeio, passeios, escolas, turmas, anos, filtros) }}
 
 <p class="table-meta">{{ total_linhas }} aluno(s) encontrado(s)</p>
-{{ aui.data_table(linhas, passeio, filtros, total_revogaveis) }}
+{{ aui.data_table(linhas, passeio, filtros, total_revogaveis, admin.pode('revogar')) }}
 {{ aui.paginacao(pagina, total_paginas, 'admin.dashboard') }}
 {% endif %}
 {% endblock %}

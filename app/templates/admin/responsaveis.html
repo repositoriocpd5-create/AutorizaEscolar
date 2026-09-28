@@ -1,0 +1,57 @@
+{% extends "admin/base_admin.html" %}
+{% import "components/ui.html" as ui with context %}
+{% import "admin/_admin_ui.html" as aui with context %}
+{% block title %}Responsáveis{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1 class="page-title">Responsáveis e alunos</h1>
+    <p class="muted">Cadastre os responsáveis pelo CPF e vincule seus filhos. Somente responsáveis com vínculo que <em>pode autorizar</em> acessam o sistema.</p>
+  </div>
+  <a class="btn btn--primary" href="{{ url_for('admin.responsavel_novo') }}">{{ ui.icon('plus') }}Novo responsável</a>
+</div>
+
+<form method="get" class="filter-bar card" role="search">
+  <div class="filter-bar__search">
+    <label for="r-q" class="sr-only">Pesquisar</label>
+    {{ ui.icon('search') }}
+    <input id="r-q" name="q" class="input" type="search" value="{{ q }}" autocomplete="off"
+           placeholder="Nome do responsável, CPF completo, nome ou matrícula do aluno">
+  </div>
+  <div class="filter-bar__actions">
+    {% if escolas|length > 1 %}
+    <select name="escola" class="input input--inline js-autosubmit" aria-label="Escola">
+      <option value="">Todas as escolas</option>
+      {% for e in escolas %}<option value="{{ e.id }}" {% if escola == e.id|string %}selected{% endif %}>{{ e.nome }}</option>{% endfor %}
+    </select>
+    {% endif %}
+    <button class="btn btn--primary btn--sm">{{ ui.icon('search') }}Pesquisar</button>
+    {% if q or escola %}<a class="btn btn--ghost btn--sm" href="{{ url_for('admin.responsaveis') }}">Limpar</a>{% endif %}
+  </div>
+</form>
+
+<p class="table-meta">{{ total }} responsável(is)</p>
+<div class="table-wrap">
+<table class="data-table">
+  <thead><tr><th>Responsável</th><th>CPF</th><th>Filhos</th><th>Situação</th><th>Ações</th></tr></thead>
+  <tbody>
+  {% for r in lista %}
+    <tr{% if not r.ativo %} class="is-inativo"{% endif %}>
+      <td data-label="Responsável"><a href="{{ url_for('admin.responsavel_editar', public_id=r.public_id) }}"><strong>{{ r.nome }}</strong></a>
+        {% if r.email or r.telefone %}<br><span class="muted small">{{ r.email or '' }}{% if r.email and r.telefone %} · {% endif %}{{ r.telefone or '' }}</span>{% endif %}</td>
+      <td data-label="CPF" class="mono small">{{ r.cpf_mascarado }}</td>
+      <td data-label="Filhos" class="small">
+        {% for v in r.vinculos %}{{ v.aluno.nome }} <span class="muted">({{ v.aluno.turma.ano|replace(' Ano','') }} {{ v.aluno.turma.nome|replace('Turma ','') }}{% if not v.responsavel_legal %}, sem autorização{% endif %})</span>{% if not loop.last %}<br>{% endif %}
+        {% else %}<span class="muted">Nenhum filho vinculado</span>{% endfor %}
+      </td>
+      <td data-label="Situação">{% if r.ativo %}<span class="badge badge--ok">{{ ui.icon('check') }}Ativo</span>{% else %}<span class="badge badge--denied">{{ ui.icon('ban') }}Inativo</span>{% endif %}</td>
+      <td data-label="Ações"><a class="btn btn--outline btn--xs" href="{{ url_for('admin.responsavel_editar', public_id=r.public_id) }}">{{ ui.icon('edit') }}Editar</a></td>
+    </tr>
+  {% else %}
+    <tr><td colspan="5" class="center muted">Nenhum responsável encontrado.</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+</div>
+{{ aui.paginacao(pagina, total_paginas, 'admin.responsaveis') }}
+{% endblock %}

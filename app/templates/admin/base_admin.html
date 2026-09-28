@@ -9,7 +9,7 @@
     <img class="brasao" src="{{ brasao_url }}" alt="Brasão" width="46" height="47">
     <div class="app-header__text">
       <strong class="app-header__title">Painel administrativo</strong>
-      <span class="app-header__sub">{{ instituicao }}{% if admin and admin.escola %} · {{ admin.escola.nome }}{% endif %}</span>
+      <span class="app-header__sub">{{ instituicao }}{% if admin %} · {{ admin.perfil_rotulo }}{% if admin.escola %} · {{ admin.escola.nome }}{% endif %}{% endif %}</span>
     </div>
     {% if admin %}
     <form method="post" action="{{ url_for('admin.sair') }}" class="app-header__action">
@@ -22,13 +22,13 @@
   <nav class="admin-nav" aria-label="Menu administrativo">
     {% set ep = request.endpoint %}
     <a href="{{ url_for('admin.dashboard') }}" {% if ep == 'admin.dashboard' %}aria-current="page"{% endif %}>{{ ui.icon('chart') }}Painel</a>
-    <a href="{{ url_for('admin.relatorios') }}" {% if ep == 'admin.relatorios' %}aria-current="page"{% endif %}>{{ ui.icon('file') }}Relatórios</a>
+    {% if admin.pode('escolas') %}<a href="{{ url_for('admin.escolas') }}" {% if ep and ep.startswith('admin.escola') %}aria-current="page"{% endif %}>{{ ui.icon('school') }}Escolas</a>{% endif %}
+    {% if admin.pode('cadastros') %}<a href="{{ url_for('admin.responsaveis') }}" {% if ep in ('admin.responsaveis', 'admin.responsavel_novo', 'admin.responsavel_editar', 'admin.aluno_editar') %}aria-current="page"{% endif %}>{{ ui.icon('users') }}Responsáveis</a>{% endif %}
+    {% if admin.pode('exportar') %}<a href="{{ url_for('admin.relatorios') }}" {% if ep == 'admin.relatorios' %}aria-current="page"{% endif %}>{{ ui.icon('file') }}Relatórios</a>{% endif %}
     <a href="{{ url_for('admin.passeios') }}" {% if ep in ('admin.passeios', 'admin.passeio_form') %}aria-current="page"{% endif %}>{{ ui.icon('calendar') }}Passeios</a>
-    <a href="{{ url_for('admin.auditoria') }}" {% if ep == 'admin.auditoria' %}aria-current="page"{% endif %}>{{ ui.icon('shield') }}Auditoria</a>
-    {% if not admin.escola_id %}
-    <a href="{{ url_for('admin.usuarios') }}" {% if ep == 'admin.usuarios' %}aria-current="page"{% endif %}>{{ ui.icon('users') }}Usuários</a>
-    <a href="{{ url_for('admin.configuracoes') }}" {% if ep == 'admin.configuracoes' %}aria-current="page"{% endif %}>{{ ui.icon('edit') }}Configurações</a>
-    {% endif %}
+    {% if admin.pode('auditoria') %}<a href="{{ url_for('admin.auditoria') }}" {% if ep == 'admin.auditoria' %}aria-current="page"{% endif %}>{{ ui.icon('shield') }}Auditoria</a>{% endif %}
+    {% if admin.pode('usuarios') %}<a href="{{ url_for('admin.usuarios') }}" {% if ep in ('admin.usuarios', 'admin.usuario_editar') %}aria-current="page"{% endif %}>{{ ui.icon('users') }}Usuários</a>{% endif %}
+    {% if admin.pode('configuracoes') %}<a href="{{ url_for('admin.configuracoes') }}" {% if ep == 'admin.configuracoes' %}aria-current="page"{% endif %}>{{ ui.icon('edit') }}Configurações</a>{% endif %}
   </nav>
   {% endif %}
 </header>

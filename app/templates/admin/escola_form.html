@@ -1,0 +1,115 @@
+{% extends "admin/base_admin.html" %}
+{% import "components/ui.html" as ui with context %}
+{% import "admin/_admin_ui.html" as aui with context %}
+{% block title %}{{ e.nome if e else 'Nova escola' }}{% endblock %}
+{% macro v(campo) -%}{{ form.get(campo, '') if form else ((e[campo] if e and e[campo] is not none else '')) }}{%- endmacro %}
+{% block content %}
+<a class="btn btn--ghost btn--sm" href="{{ url_for('admin.escolas') }}">{{ ui.icon('arrow-left') }}Escolas</a>
+<h1 class="page-title">{{ e.nome if e else 'Nova escola' }}</h1>
+{% if erro %}<div class="alert alert--error" role="alert">{{ erro }}</div>{% endif %}
+
+<form method="post" class="form-sections">
+  <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+  <section class="card form-grid">
+    <h2 class="card-title span-2">Identificação</h2>
+    <label class="span-2">Nome da escola<input name="nome" class="input" required maxlength="160" value="{{ v('nome') }}"></label>
+    <label>INEP <small class="muted">(8 dígitos)</small><input name="inep" class="input mono" inputmode="numeric" maxlength="8" value="{{ v('inep') }}"></label>
+    <label>CNPJ<input name="cnpj" class="input mono" maxlength="18" value="{{ v('cnpj') }}"></label>
+    <label>Modalidade<input name="modalidade" class="input" maxlength="120" placeholder="Ex.: Pré ao 9º Ano" value="{{ v('modalidade') }}"></label>
+    <label>Turno<input name="turno" class="input" maxlength="40" placeholder="Ex.: Integral, M / T" value="{{ v('turno') }}"></label>
+    <label>Quantidade de salas<input name="qtd_salas" type="number" min="0" class="input" value="{{ v('qtd_salas') }}"></label>
+    <fieldset class="checks">
+      <legend>Situação</legend>
+      <label class="check"><input type="radio" name="ativo" value="1" {% if not e or e.ativo %}checked{% endif %}> Ativa</label>
+      <label class="check"><input type="radio" name="ativo" value="0" {% if e and not e.ativo %}checked{% endif %}> Inativa</label>
+    </fieldset>
+  </section>
+
+  <section class="card form-grid">
+    <h2 class="card-title span-2">Contato e direção</h2>
+    <label>Diretor(a)<input name="diretor" class="input" maxlength="160" value="{{ v('diretor') }}"></label>
+    <label>Diretor(a) adjunto(a)<input name="vice_diretor" class="input" maxlength="160" value="{{ v('vice_diretor') }}"></label>
+    <label>E-mail<input name="email" type="email" class="input" maxlength="160" value="{{ v('email') }}"></label>
+    <div class="grid-2">
+      <label>Telefone<input name="telefone" class="input" maxlength="30" value="{{ v('telefone') }}"></label>
+      <label>Ramal<input name="ramal" class="input" maxlength="10" value="{{ v('ramal') }}"></label>
+    </div>
+  </section>
+
+  <section class="card form-grid">
+    <h2 class="card-title span-2">Endereço</h2>
+    <label class="span-2">Logradouro<input name="logradouro" class="input" maxlength="200" value="{{ v('logradouro') }}"></label>
+    <label>Número<input name="numero" class="input" maxlength="20" value="{{ v('numero') }}"></label>
+    <label>Complemento<input name="complemento" class="input" maxlength="120" value="{{ v('complemento') }}"></label>
+    <label>Bairro<input name="bairro" class="input" maxlength="120" value="{{ v('bairro') }}"></label>
+    <label>CEP<input name="cep" class="input mono" maxlength="9" inputmode="numeric" value="{{ v('cep') }}"></label>
+    <label>Cidade<input name="cidade" class="input" maxlength="80" value="{{ v('cidade') or ('' if e else 'Itaguaí') }}"></label>
+    <label>UF<input name="uf" class="input" maxlength="2" value="{{ v('uf') or ('' if e else 'RJ') }}"></label>
+    <label class="span-2">Link do mapa (Google Maps)<input name="maps_link" type="url" class="input" maxlength="300" placeholder="https://maps.app.goo.gl/..." value="{{ v('maps_link') }}">
+      {% if e and e.maps_link %}<small><a href="{{ e.maps_link }}" target="_blank" rel="noopener noreferrer">Abrir no mapa</a></small>{% endif %}</label>
+  </section>
+
+  <div class="form-actions sticky-actions">
+    <a class="btn btn--secondary" href="{{ url_for('admin.escolas') }}">Cancelar</a>
+    <button class="btn btn--primary">{{ 'Salvar alterações' if e else 'Cadastrar escola' }}</button>
+  </div>
+</form>
+
+{% if e %}
+<section class="card" id="turmas">
+  <h2 class="card-title">Turmas ({{ e.turmas|length }})</h2>
+  {% if e.turmas %}
+  <div class="turmas-lista">
+    {% for t in e.turmas %}
+    <form method="post" action="{{ url_for('admin.escola_turmas', eid=e.id) }}" class="turma-chip js-confirm"
+          data-confirm="Excluir a turma {{ t.ano }} — {{ t.nome }}?">
+      <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+      <input type="hidden" name="acao" value="excluir">
+      <input type="hidden" name="turma_id" value="{{ t.id }}">
+      <span>{{ t.ano }} — {{ t.nome }} <small class="muted">({{ alunos_por_turma.get(t.id, 0) }} alunos)</small></span>
+      <button class="icon-btn icon-btn--sm" aria-label="Excluir {{ t.ano }} {{ t.nome }}">{{ ui.icon('x') }}</button>
+    </form>
+    {% endfor %}
+  </div>
+  {% else %}
+  <p class="aviso aviso--warn">{{ ui.icon('info') }}<span>Nenhuma turma cadastrada — a escola não aparece no cadastro de passeios nem de alunos até ter turmas.</span></p>
+  {% endif %}
+
+  {% if anos_modalidade %}
+  <form method="post" action="{{ url_for('admin.escola_turmas', eid=e.id) }}" class="card card--sub stack mt-1">
+    <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+    <input type="hidden" name="acao" value="modalidade">
+    <h3 class="card-title">{{ ui.icon('school') }} Gerar pela modalidade <small class="muted">“{{ e.modalidade }}”</small></h3>
+    <p class="small">Anos/séries: <strong>{{ anos_modalidade|join(', ') }}</strong></p>
+    <label>Turmas de cada ano <small class="muted">(letras)</small><input name="letras" class="input" value="A" required></label>
+    <button class="btn btn--primary">{{ ui.icon('plus') }}Gerar turmas</button>
+  </form>
+  {% endif %}
+
+  <form method="post" action="{{ url_for('admin.escola_turmas', eid=e.id) }}" class="card card--sub stack mt-1">
+    <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+    <input type="hidden" name="acao" value="criar">
+    <h3 class="card-title">{{ ui.icon('plus') }} Adicionar turmas</h3>
+    <fieldset class="checks">
+      <legend>Anos/séries</legend>
+      <div class="turmas-grid turmas-grid--anos">
+        {% for a in ANOS %}<label class="check"><input type="checkbox" name="anos" value="{{ a }}"> {{ a }}</label>{% endfor %}
+      </div>
+    </fieldset>
+    <label>Turmas de cada ano <small class="muted">(letras separadas por vírgula)</small>
+      <input name="letras" class="input" value="A" placeholder="A, B, C" required></label>
+    <button class="btn btn--primary">{{ ui.icon('plus') }}Criar turmas</button>
+    <small class="muted">Ex.: marcar 1º ao 5º Ano com "A, B" cria 10 turmas. Turmas já existentes são ignoradas.</small>
+  </form>
+</section>
+
+<section class="card card--danger">
+  <h2 class="card-title">Excluir escola</h2>
+  <p class="small muted">Se houver alunos, usuários ou passeios vinculados, a escola é apenas <strong>desativada</strong> para preservar o histórico.</p>
+  <form method="post" action="{{ url_for('admin.escola_excluir', eid=e.id) }}" class="js-confirm" data-confirm="Excluir (ou desativar) a escola {{ e.nome }}?">
+    <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+    <button class="btn btn--danger">{{ ui.icon('ban') }}Excluir escola</button>
+  </form>
+</section>
+{% endif %}
+{% endblock %}

@@ -9,3 +9,18 @@ instance/
 /autorizacao-*.pdf
 .claude/
 *.log
+
+# Dados reais da rede (nomes de diretores, e-mails): não versionar em repositório público
+docs/supabase/escolas.sql
+
+# Dados reais de alunos e responsáveis (LGPD): nunca versionar
+csv/
+docs/supabase/alunos*.sql
+*.csv
+
+# Segredos de produção (ex.: CPF_PEPPER do Render) — nunca versionar
+.env.*
+!.env.example
+
+# Imagens de referência soltas na raiz (não fazem parte do projeto)
+/*.png

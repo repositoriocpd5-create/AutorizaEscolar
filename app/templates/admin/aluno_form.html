@@ -1,0 +1,34 @@
+{% extends "admin/base_admin.html" %}
+{% import "components/ui.html" as ui with context %}
+{% import "admin/_admin_ui.html" as aui with context %}
+{% import "admin/_cadastro_campos.html" as cc %}
+{% block title %}Editar aluno{% endblock %}
+{% macro v(campo) -%}
+{%- if form -%}{{ form.get(campo, '') }}
+{%- elif campo == 'aluno_nome' -%}{{ aluno.nome }}
+{%- elif campo == 'matricula' -%}{{ aluno.matricula }}
+{%- elif campo == 'sexo' -%}{{ aluno.sexo or '' }}
+{%- elif campo == 'escola_id' -%}{{ aluno.escola_id }}
+{%- elif campo == 'turma_id' -%}{{ aluno.turma_id }}
+{%- elif campo == 'aluno_nascimento' -%}{{ aluno.data_nascimento.isoformat() if aluno.data_nascimento else '' }}
+{%- endif -%}
+{%- endmacro %}
+{% block content %}
+<a class="btn btn--ghost btn--sm" href="{{ voltar }}">{{ ui.icon('arrow-left') }}Voltar</a>
+<h1 class="page-title">Editar aluno</h1>
+{% if erro %}<div class="alert alert--error" role="alert">{{ erro }}</div>{% endif %}
+<form method="post" class="card form-grid js-form-aluno">
+  <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+  {{ cc.campos_aluno(escolas, turmas, v) }}
+  <fieldset class="span-2 checks">
+    <legend>Situação</legend>
+    <label class="check"><input type="radio" name="aluno_ativo" value="1" {% if aluno.ativo %}checked{% endif %}> Ativo (matriculado)</label>
+    <label class="check"><input type="radio" name="aluno_ativo" value="0" {% if not aluno.ativo %}checked{% endif %}> Inativo (não aparece para os responsáveis)</label>
+  </fieldset>
+  <p class="small muted span-2">Ao mudar de turma, o aluno passa a participar dos passeios da nova turma. Respostas já registradas são preservadas.</p>
+  <div class="span-2 form-actions">
+    <a class="btn btn--secondary" href="{{ voltar }}">Cancelar</a>
+    <button class="btn btn--primary">Salvar aluno</button>
+  </div>
+</form>
+{% endblock %}

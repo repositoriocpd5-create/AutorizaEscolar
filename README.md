@@ -199,6 +199,62 @@ ou Gov.br, crie uma subclasse de `SegundoFator` em `app/services/auth_service.py
 
 Usuários de unidade escolar só enxergam e revogam alunos da própria escola (validado no servidor).
 
+### Perfis e permissões
+
+| Perfil | O que pode |
+|---|---|
+| **Administrador** | Tudo dentro do seu escopo (rede inteira ou uma escola) |
+| **Comum** | Consultar painel/alunos/PDFs + as permissões marcadas: revogar, exportar, cadastrar responsáveis e alunos, auditoria*, passeios*, configurações*, usuários* |
+
+\* Somente para usuários com escopo de rede. Ninguém desativa a si mesmo e sempre resta ao menos
+um Administrador da rede ativo. Com `SUPABASE_SECRET_KEY` (somente no servidor), o painel também
+cria contas no Supabase (convite por e-mail ou senha inicial), redefine senhas e bloqueia/desbloqueia
+usuários desativados. Para os links de convite/redefinição, cadastre `https://SEU-DOMINIO/admin/definir-senha`
+em *Supabase → Authentication → URL Configuration → Redirect URLs*.
+
+### Escolas e turmas
+
+*Admin → Escolas* (permissão "Cadastrar escolas e turmas", somente rede): cadastro completo
+(INEP, contato, direção, endereço, modalidade, turno), turmas individuais ou em lote e
+importação do `schools_data.json` da rede — idempotente, atualiza pelo INEP. Pela linha de comando:
+
+```powershell
+.\.venv\Scripts\flask --app wsgi importar-escolas caminho\schools_data.json
+.\.venv\Scripts\flask --app wsgi sql-escolas caminho\schools_data.json docs\supabase\escolas.sql
+```
+
+No Supabase: rode `docs/supabase/schema.sql` e depois `docs/supabase/escolas.sql` no SQL Editor.
+O `schema.sql` é **incremental e reexecutável** (aplica só as migrations que faltam, conforme
+`alembic_version`); regenere-o após criar migrations com `python scripts/gerar_sql_supabase.py`.
+O `escolas.sql` também cria "Turma A" para cada ano/série deduzido da modalidade de cada escola.
+
+Para rodar os testes num PostgreSQL real: defina `TEST_DATABASE_URL=postgresql://usuario@host:porta/banco_vazio`.
+
+### Importação de alunos e responsáveis (sistema de gestão)
+
+JSON com `aluno_id, nome_aluno, data_nascimento, cpf_aluno, turma, ano_letivo, status_vinculo,
+nome_pai, cpf_pai, nome_mae, cpf_mae` (um registro por aluno):
+
+```powershell
+.\.venv\Scripts\flask --app wsgi sql-alunos arquivo.json docs\supabase\alunos.sql   # SQL para o Supabase
+.\.venv\Scripts\flask --app wsgi importar-alunos arquivo.json --inep 33045372          # direto no DATABASE_URL
+```
+
+No `alunos.sql`, preencha no topo o **INEP** da escola e o **CPF_PEPPER do servidor** (o mesmo do Render):
+o hash do CPF é calculado dentro do banco (pgcrypto), então o pepper não fica em nenhum arquivo.
+Regras: CPFs validados (inválidos descartados com aviso), nunca gravados em claro; responsáveis com CPF
+são únicos (irmãos compartilham o cadastro); sem CPF são cadastrados sem acesso até alguém informar o CPF;
+aluno ativo = "ativo" no ano letivo mais recente; reexecutável sem duplicar.
+**O arquivo de origem e o SQL gerado contêm dados reais (LGPD) e ficam fora do Git.**
+**Nunca altere o `CPF_PEPPER` depois de importar**: os CPFs deixariam de ser encontrados.
+
+### Responsáveis e alunos
+
+*Admin → Responsáveis*: cadastro, edição e exclusão de responsáveis (CPF validado, único, guardado
+somente como hash) e de seus filhos — vincular aluno existente (matrícula/nome) ou cadastrar aluno novo
+(entra automaticamente nos passeios da turma). Responsável com autorizações registradas é desativado
+(não apagado) para preservar comprovantes.
+
 ### Login do painel (Supabase Authentication)
 
 Com `SUPABASE_URL` e `SUPABASE_PUBLISHABLE_KEY` definidos, o login do painel é feito com
