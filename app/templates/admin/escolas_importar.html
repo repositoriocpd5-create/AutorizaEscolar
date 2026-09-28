@@ -1,0 +1,30 @@
+{% extends "admin/base_admin.html" %}
+{% import "components/ui.html" as ui with context %}
+{% import "admin/_admin_ui.html" as aui with context %}
+{% block title %}Importar escolas{% endblock %}
+{% block content %}
+<a class="btn btn--ghost btn--sm" href="{{ url_for('admin.escolas') }}">{{ ui.icon('arrow-left') }}Escolas</a>
+<h1 class="page-title">Importar escolas (JSON)</h1>
+
+{% if relatorio %}
+<section class="card">
+  <h2 class="card-title">{{ ui.icon('check') }} Importação concluída</h2>
+  <p><strong>{{ relatorio.criadas }}</strong> escola(s) criada(s) · <strong>{{ relatorio.atualizadas }}</strong> atualizada(s).</p>
+  {% if relatorio.avisos %}
+  <p class="aviso aviso--warn">{{ ui.icon('alert') }}<span>{{ relatorio.avisos|length }} aviso(s) — revise estes cadastros:</span></p>
+  <ul class="plain-list small">{% for a in relatorio.avisos %}<li>{{ a }}</li>{% endfor %}</ul>
+  {% endif %}
+  <a class="btn btn--primary" href="{{ url_for('admin.escolas') }}">Ver escolas</a>
+</section>
+{% endif %}
+
+<section class="card">
+  <p class="muted">Envie o arquivo <code>schools_data.json</code> da rede (lista de escolas com <code>name</code>, <code>inep</code>, <code>email</code>,
+    <code>director</code>, <code>street</code>, <code>area</code>, <code>cep</code>…). A importação pode ser repetida: escolas são atualizadas pelo INEP, sem duplicar.</p>
+  <form method="post" enctype="multipart/form-data" class="stack">
+    <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+    <label>Arquivo JSON<input type="file" name="arquivo" class="input input--file" accept=".json,application/json" required></label>
+    <button class="btn btn--primary">{{ ui.icon('download') }}Importar</button>
+  </form>
+</section>
+{% endblock %}

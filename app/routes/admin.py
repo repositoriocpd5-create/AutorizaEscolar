@@ -348,7 +348,7 @@ def passeio_form(public_id=None):
             flash("Passeio salvo com sucesso.", "sucesso")
             return redirect(url_for("admin.passeios"))
         db.session.rollback()
-    escolas = Escola.query.order_by(Escola.nome)
+    escolas = Escola.query.filter(Escola.ativo.is_(True), Escola.turmas.any()).order_by(Escola.nome)
     selecionadas = {int(x) for x in request.form.getlist("turmas") if x.isdigit()} if request.method == "POST" \
         else {t.id for t in p.turmas}
     return render_template("admin/passeio_form.html", p=p,
@@ -614,3 +614,4 @@ def definir_senha():
 
 # Rotas de cadastro de responsáveis/alunos (mesmo blueprint).
 from . import admin_cadastros  # noqa: E402,F401
+from . import admin_escolas  # noqa: E402,F401

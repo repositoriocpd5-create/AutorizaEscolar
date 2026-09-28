@@ -49,9 +49,34 @@ class Escola(db.Model):
     __tablename__ = "escola"
     id = db.Column(db.Integer, primary_key=True)
     nome = db.Column(db.String(160), nullable=False)
-    codigo = db.Column(db.String(30), unique=True, nullable=False)
+    codigo = db.Column(db.String(30), unique=True, nullable=False)  # código interno (padrão: INEP)
+    inep = db.Column(db.String(8), unique=True)
+    cnpj = db.Column(db.String(18))
+    email = db.Column(db.String(160))
+    telefone = db.Column(db.String(30))
+    ramal = db.Column(db.String(10))
+    diretor = db.Column(db.String(160))
+    vice_diretor = db.Column(db.String(160))
+    modalidade = db.Column(db.String(120))   # ex.: "Pré ao 9º Ano"
+    turno = db.Column(db.String(40))         # ex.: "Integral", "M / T"
+    qtd_salas = db.Column(db.Integer)
+    logradouro = db.Column(db.String(200))
+    numero = db.Column(db.String(20))
+    complemento = db.Column(db.String(120))
+    bairro = db.Column(db.String(120))
+    cidade = db.Column(db.String(80))
+    uf = db.Column(db.String(2))
+    cep = db.Column(db.String(9))
+    maps_link = db.Column(db.String(300))
+    ativo = db.Column(db.Boolean, nullable=False, default=True, server_default=db.true())
 
     turmas = db.relationship("Turma", back_populates="escola", order_by="Turma.ano, Turma.nome")
+
+    @property
+    def endereco(self) -> str:
+        partes = [self.logradouro, self.numero and f"nº {self.numero}", self.complemento, self.bairro,
+                  self.cidade and (self.cidade + (f"/{self.uf}" if self.uf else "")), self.cep and f"CEP {self.cep}"]
+        return ", ".join(p for p in partes if p)
 
 
 class Turma(db.Model):
@@ -307,9 +332,10 @@ PERMISSOES = {
     "configuracoes": "Alterar configurações gerais",
     "usuarios": "Gerenciar usuários",
     "cadastros": "Cadastrar responsáveis e alunos",
+    "escolas": "Cadastrar escolas e turmas",
 }
 # Permissões que só valem para usuários com escopo de REDE (sem escola).
-PERMISSOES_SOMENTE_REDE = {"auditoria", "passeios", "configuracoes", "usuarios"}
+PERMISSOES_SOMENTE_REDE = {"auditoria", "passeios", "configuracoes", "usuarios", "escolas"}
 PERMISSOES_PADRAO_COMUM = {"exportar"}
 
 

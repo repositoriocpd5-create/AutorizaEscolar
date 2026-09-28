@@ -373,5 +373,49 @@ ALTER TABLE admin_usuario ADD COLUMN criado_em TIMESTAMP WITHOUT TIME ZONE;
 
 UPDATE alembic_version SET version_num='6802f6d3f643' WHERE alembic_version.version_num = 'efba62287685';
 
+-- Running upgrade 6802f6d3f643 -> ac8442cb4873
+
+ALTER TABLE escola ADD COLUMN inep VARCHAR(8);
+
+ALTER TABLE escola ADD COLUMN cnpj VARCHAR(18);
+
+ALTER TABLE escola ADD COLUMN email VARCHAR(160);
+
+ALTER TABLE escola ADD COLUMN telefone VARCHAR(30);
+
+ALTER TABLE escola ADD COLUMN ramal VARCHAR(10);
+
+ALTER TABLE escola ADD COLUMN diretor VARCHAR(160);
+
+ALTER TABLE escola ADD COLUMN vice_diretor VARCHAR(160);
+
+ALTER TABLE escola ADD COLUMN modalidade VARCHAR(120);
+
+ALTER TABLE escola ADD COLUMN turno VARCHAR(40);
+
+ALTER TABLE escola ADD COLUMN qtd_salas INTEGER;
+
+ALTER TABLE escola ADD COLUMN logradouro VARCHAR(200);
+
+ALTER TABLE escola ADD COLUMN numero VARCHAR(20);
+
+ALTER TABLE escola ADD COLUMN complemento VARCHAR(120);
+
+ALTER TABLE escola ADD COLUMN bairro VARCHAR(120);
+
+ALTER TABLE escola ADD COLUMN cidade VARCHAR(80);
+
+ALTER TABLE escola ADD COLUMN uf VARCHAR(2);
+
+ALTER TABLE escola ADD COLUMN cep VARCHAR(9);
+
+ALTER TABLE escola ADD COLUMN maps_link VARCHAR(300);
+
+ALTER TABLE escola ADD COLUMN ativo BOOLEAN DEFAULT 1 NOT NULL;
+
+ALTER TABLE escola ADD CONSTRAINT uq_escola_inep UNIQUE (inep);
+
+UPDATE alembic_version SET version_num='ac8442cb4873' WHERE alembic_version.version_num = '6802f6d3f643';
+
 COMMIT;
 

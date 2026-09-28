@@ -454,6 +454,14 @@ label { font-weight: 600; }
 .print-table th { background: #eef2f7; }
 
 .mt-1 { margin-top: 1rem; }
+.turmas-lista { display: flex; flex-wrap: wrap; gap: .5rem; }
+.turma-chip {
+  display: inline-flex; align-items: center; gap: .25rem; padding: .25rem .25rem .25rem .75rem; margin: 0;
+  border: 1px solid var(--borda); border-radius: 999px; background: #fff; font-size: .875rem;
+}
+.icon-btn--sm { width: 30px; height: 30px; color: var(--texto-suave); border: 0; background: none; cursor: pointer; }
+.icon-btn--sm:hover { background: var(--vermelho-claro); color: var(--vermelho); }
+.turmas-grid--anos { padding-left: 0; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); }
 .card--sub { background: #f8fafc; box-shadow: none; margin: 0; }
 .card--sub .card-title { display: flex; flex-wrap: nowrap; gap: .4rem; align-items: center; font-size: 1rem; }
 .grid-largo { display: grid; gap: 1rem; }

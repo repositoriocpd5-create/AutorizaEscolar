@@ -212,6 +212,19 @@ cria contas no Supabase (convite por e-mail ou senha inicial), redefine senhas e
 usuários desativados. Para os links de convite/redefinição, cadastre `https://SEU-DOMINIO/admin/definir-senha`
 em *Supabase → Authentication → URL Configuration → Redirect URLs*.
 
+### Escolas e turmas
+
+*Admin → Escolas* (permissão "Cadastrar escolas e turmas", somente rede): cadastro completo
+(INEP, contato, direção, endereço, modalidade, turno), turmas individuais ou em lote e
+importação do `schools_data.json` da rede — idempotente, atualiza pelo INEP. Pela linha de comando:
+
+```powershell
+.\.venv\Scripts\flask --app wsgi importar-escolas caminho\schools_data.json
+.\.venv\Scripts\flask --app wsgi sql-escolas caminho\schools_data.json docs\supabase\escolas.sql
+```
+
+No Supabase: rode `docs/supabase/schema.sql` e depois `docs/supabase/escolas.sql` no SQL Editor.
+
 ### Responsáveis e alunos
 
 *Admin → Responsáveis*: cadastro, edição e exclusão de responsáveis (CPF validado, único, guardado

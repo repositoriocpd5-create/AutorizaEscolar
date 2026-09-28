@@ -9,3 +9,6 @@ instance/
 /autorizacao-*.pdf
 .claude/
 *.log
+
+# Dados reais da rede (nomes de diretores, e-mails): não versionar em repositório público
+docs/supabase/escolas.sql

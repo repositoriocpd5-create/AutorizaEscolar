@@ -52,6 +52,31 @@ def registrar_cli(app):
         db.session.commit()
         click.echo("Administrador autorizado.")
 
+    @app.cli.command("importar-escolas")
+    @click.argument("arquivo", type=click.Path(exists=True, dir_okay=False))
+    def importar_escolas(arquivo):
+        """Importa/atualiza escolas a partir do JSON da rede (idempotente, pelo INEP)."""
+        from .services import escola_service
+        with open(arquivo, "rb") as f:
+            rel = escola_service.importar_arquivo(f.read())
+        db.session.commit()
+        click.echo(f"Criadas: {rel.criadas} · Atualizadas: {rel.atualizadas}")
+        for aviso in rel.avisos:
+            click.echo(f"  AVISO: {aviso}")
+
+    @app.cli.command("sql-escolas")
+    @click.argument("arquivo", type=click.Path(exists=True, dir_okay=False))
+    @click.argument("saida", type=click.Path(dir_okay=False))
+    def sql_escolas(arquivo, saida):
+        """Gera SQL (INSERT ... ON CONFLICT) das escolas para o SQL Editor do Supabase."""
+        import json
+        from .services import escola_service
+        with open(arquivo, encoding="utf-8-sig") as f:
+            dados = json.load(f)
+        with open(saida, "w", encoding="utf-8") as f:
+            f.write(escola_service.sql_supabase(dados))
+        click.echo(f"SQL gravado em {saida}")
+
     @app.cli.command("limpar-tentativas")
     def limpar():
         """Remove registros antigos de tentativas de acesso (agende diariamente)."""

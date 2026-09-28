@@ -1,0 +1,57 @@
+{% extends "admin/base_admin.html" %}
+{% import "components/ui.html" as ui with context %}
+{% import "admin/_admin_ui.html" as aui with context %}
+{% block title %}Escolas{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1 class="page-title">Escolas</h1>
+    <p class="muted">Unidades escolares da rede, com endereço, direção e turmas.</p>
+  </div>
+  <div class="row-actions">
+    <a class="btn btn--outline" href="{{ url_for('admin.escolas_importar') }}">{{ ui.icon('download') }}Importar JSON</a>
+    <a class="btn btn--primary" href="{{ url_for('admin.escola_nova') }}">{{ ui.icon('plus') }}Nova escola</a>
+  </div>
+</div>
+
+<form method="get" class="filter-bar card" role="search">
+  <div class="filter-bar__search">
+    <label for="e-q" class="sr-only">Pesquisar escola</label>
+    {{ ui.icon('search') }}
+    <input id="e-q" name="q" class="input" type="search" value="{{ q }}" placeholder="Nome, INEP, bairro ou diretor(a)">
+  </div>
+  <div class="filter-bar__actions">
+    <select name="situacao" class="input input--inline js-autosubmit" aria-label="Situação">
+      <option value="">Todas</option>
+      <option value="ativas" {% if situacao == 'ativas' %}selected{% endif %}>Ativas</option>
+      <option value="inativas" {% if situacao == 'inativas' %}selected{% endif %}>Inativas</option>
+    </select>
+    <button class="btn btn--primary btn--sm">{{ ui.icon('search') }}Pesquisar</button>
+    {% if q or situacao %}<a class="btn btn--ghost btn--sm" href="{{ url_for('admin.escolas') }}">Limpar</a>{% endif %}
+  </div>
+</form>
+
+<p class="table-meta">{{ total }} escola(s)</p>
+<div class="table-wrap">
+<table class="data-table">
+  <thead><tr><th>Escola</th><th>INEP</th><th>Bairro</th><th>Direção</th><th>Turmas / alunos</th><th>Situação</th><th></th></tr></thead>
+  <tbody>
+  {% for e in lista %}
+    <tr{% if not e.ativo %} class="is-inativo"{% endif %}>
+      <td data-label="Escola"><a href="{{ url_for('admin.escola_editar', eid=e.id) }}"><strong>{{ e.nome }}</strong></a>
+        {% if e.modalidade or e.turno %}<br><span class="muted small">{{ e.modalidade or '' }}{% if e.modalidade and e.turno %} · {% endif %}{{ e.turno or '' }}</span>{% endif %}</td>
+      <td data-label="INEP" class="mono small">{{ e.inep or '—' }}</td>
+      <td data-label="Bairro">{{ e.bairro or '—' }}</td>
+      <td data-label="Direção" class="small">{{ e.diretor or '—' }}</td>
+      <td data-label="Turmas / alunos">{{ e.turmas|length }} / {{ alunos_por_escola.get(e.id, 0) }}</td>
+      <td data-label="Situação">{% if e.ativo %}<span class="badge badge--ok">{{ ui.icon('check') }}Ativa</span>{% else %}<span class="badge badge--denied">{{ ui.icon('ban') }}Inativa</span>{% endif %}</td>
+      <td><a class="btn btn--outline btn--xs" href="{{ url_for('admin.escola_editar', eid=e.id) }}">{{ ui.icon('edit') }}Editar</a></td>
+    </tr>
+  {% else %}
+    <tr><td colspan="7" class="center muted">Nenhuma escola encontrada.</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+</div>
+{{ aui.paginacao(pagina, total_paginas, 'admin.escolas') }}
+{% endblock %}
