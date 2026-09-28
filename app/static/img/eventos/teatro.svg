@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 170" aria-hidden="true">
+  <defs>
+    <radialGradient id="g" cx="50%" cy="55%" r="55%"><stop offset="0" stop-color="#FFC53D" stop-opacity=".35"/><stop offset="1" stop-color="#FFC53D" stop-opacity="0"/></radialGradient>
+    <linearGradient id="c" x1="0" x2="1"><stop offset="0" stop-color="#8E1B1F"/><stop offset=".5" stop-color="#D7383D"/><stop offset="1" stop-color="#8E1B1F"/></linearGradient>
+  </defs>
+  <ellipse cx="160" cy="100" rx="150" ry="70" fill="url(#g)"/>
+  <!-- Palco -->
+  <rect x="40" y="136" width="240" height="14" rx="3" fill="#8A5A2B"/>
+  <rect x="30" y="148" width="260" height="8" rx="3" fill="#5C3A1A"/>
+  <!-- Cortinas -->
+  <path d="M40 10h240v16H40z" fill="#B42328"/>
+  <path d="M40 22c10 8 20 8 30 0s20 8 30 0 20 8 30 0 20 8 30 0 20 8 30 0 20 8 30 0 20 8 30 0 20 8 30 0v6H40z" fill="#8E1B1F"/>
+  <path d="M40 26h44c-6 40-2 80 8 110H40z" fill="url(#c)"/>
+  <path d="M280 26h-44c6 40 2 80-8 110h52z" fill="url(#c)"/>
+  <path d="M84 26c-6 40-2 80 8 110" stroke="#FFC53D" stroke-width="3" fill="none"/>
+  <path d="M236 26c6 40 2 80-8 110" stroke="#FFC53D" stroke-width="3" fill="none"/>
+  <!-- Máscaras -->
+  <g transform="translate(118 50) rotate(-10)">
+    <path d="M0 0h44v30c0 18-10 30-22 30S0 48 0 30z" fill="#FFFBFC"/>
+    <path d="M9 18q5-5 10 0M25 18q5-5 10 0" stroke="#0C1D32" stroke-width="3" fill="none" stroke-linecap="round"/>
+    <path d="M11 36q11 12 22 0" stroke="#0C1D32" stroke-width="3.5" fill="none" stroke-linecap="round"/>
+  </g>
+  <g transform="translate(160 58) rotate(12)">
+    <path d="M0 0h44v30c0 18-10 30-22 30S0 48 0 30z" fill="#FFC53D"/>
+    <path d="M9 20q5 5 10 0M25 20q5 5 10 0" stroke="#0C1D32" stroke-width="3" fill="none" stroke-linecap="round"/>
+    <path d="M11 44q11-12 22 0" stroke="#0C1D32" stroke-width="3.5" fill="none" stroke-linecap="round"/>
+  </g>
+  <g fill="#FFC53D"><path d="M20 60l2.4 4.8 5.3.8-3.8 3.7.9 5.3-4.8-2.5-4.8 2.5.9-5.3-3.8-3.7 5.3-.8z"/><path d="M300 70l2.4 4.8 5.3.8-3.8 3.7.9 5.3-4.8-2.5-4.8 2.5.9-5.3-3.8-3.7 5.3-.8z"/></g>
+</svg>

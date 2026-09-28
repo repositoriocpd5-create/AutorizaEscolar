@@ -1,0 +1,19 @@
+{% extends "admin/base_admin.html" %}
+{% import "components/ui.html" as ui with context %}
+{% import "admin/_admin_ui.html" as aui with context %}
+{% block title %}Relatórios{% endblock %}
+{% block content %}
+<h1 class="page-title">Relatórios</h1>
+{% if passeio %}
+<p class="muted">Os relatórios respeitam os filtros abaixo (escola, ano e turma). CPF nunca é exportado.</p>
+{{ aui.filter_bar(passeio, passeios, escolas, turmas, anos, filtros, endpoint='admin.relatorios', situacao=False) }}
+<ul class="report-list">
+  {% for chave, (titulo, _) in relatorios.items() %}
+  <li class="card report-item">
+    <span class="report-item__title">{{ ui.icon('file') }}{{ titulo }}</span>
+    {{ aui.report_export(passeio, chave, filtros) }}
+  </li>
+  {% endfor %}
+</ul>
+{% else %}<p class="card">Nenhum passeio cadastrado.</p>{% endif %}
+{% endblock %}

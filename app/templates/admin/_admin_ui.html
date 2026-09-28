@@ -1,0 +1,187 @@
+{% import "components/ui.html" as ui with context %}
+
+{# ---------- FilterBar ----------
+   - Selects aplicam o filtro ao mudar (JS) e o botão funciona sem JS.
+   - Turma depende de escola e ano: opções incompatíveis ficam ocultas.
+   - Filtros ativos aparecem como etiquetas removíveis. #}
+{% macro filter_bar(passeio, passeios, escolas, turmas, anos, filtros, endpoint='admin.dashboard', situacao=True) -%}
+{% set rotulos_sit = {'AUTORIZADO': 'Autorizado', 'NAO_AUTORIZADO': 'Não autorizado', 'AGUARDANDO': 'Aguardando resposta', 'CANCELADO': 'Cancelado / revogado'} %}
+<form class="filter-bar card js-filter-bar" method="get" action="{{ url_for(endpoint) }}" role="search" aria-label="Filtros">
+  <div class="filter-bar__search">
+    <label for="f-q" class="sr-only">Pesquisar aluno, responsável, matrícula ou protocolo</label>
+    {{ ui.icon('search') }}
+    <input id="f-q" name="q" class="input" type="search" value="{{ filtros.q }}" autocomplete="off"
+           placeholder="Pesquisar aluno, responsável, matrícula ou protocolo">
+  </div>
+  <div class="filter-bar__grid">
+    <label>Passeio
+      <select name="passeio" class="input js-autosubmit">
+        {% for p in passeios %}<option value="{{ p.public_id }}" {% if p.id == passeio.id %}selected{% endif %}>{{ p.nome }} ({{ p.data|data_br }})</option>{% endfor %}
+      </select>
+    </label>
+    <label>Escola
+      <select name="escola" class="input js-f-escola js-autosubmit" {% if escolas|length == 1 %}disabled{% endif %}>
+        {% if escolas|length > 1 %}<option value="">Todas</option>{% endif %}
+        {% for e in escolas %}<option value="{{ e.id }}" {% if filtros.escola == e.id|string %}selected{% endif %}>{{ e.nome }}</option>{% endfor %}
+      </select>
+    </label>
+    <label>Ano/série
+      <select name="ano" class="input js-f-ano js-autosubmit">
+        <option value="">Todos</option>
+        {% for a in anos %}<option value="{{ a }}" {% if filtros.ano == a %}selected{% endif %}>{{ a }}</option>{% endfor %}
+      </select>
+    </label>
+    <label>Turma
+      <select name="turma" class="input js-f-turma js-autosubmit">
+        <option value="">Todas</option>
+        {% for t in turmas %}<option value="{{ t.id }}" data-escola="{{ t.escola_id }}" data-ano="{{ t.ano }}" {% if filtros.turma == t.id|string %}selected{% endif %}>{{ t.ano }} — {{ t.nome }}{% if escolas|length > 1 %} · {{ t.escola.nome }}{% endif %}</option>{% endfor %}
+      </select>
+    </label>
+    {% if situacao %}
+    <label>Situação
+      <select name="situacao" class="input js-autosubmit">
+        <option value="">Todas</option>
+        {% for s, rot in rotulos_sit.items() %}
+        <option value="{{ s }}" {% if filtros.situacao == s %}selected{% endif %}>{{ rot }}</option>{% endfor %}
+      </select>
+    </label>
+    {% endif %}
+  </div>
+  <div class="filter-bar__actions">
+    <button class="btn btn--primary btn--sm">{{ ui.icon('search') }}Aplicar filtros</button>
+    <a class="btn btn--ghost btn--sm" href="{{ url_for(endpoint, passeio=passeio.public_id) }}">Limpar</a>
+    {% set base = dict(passeio=passeio.public_id, q=filtros.q, escola=filtros.escola, ano=filtros.ano, turma=filtros.turma, situacao=filtros.situacao if situacao else '') %}
+    {% set ativos = [] %}
+    {% if filtros.q %}{% set _ = ativos.append(('q', '“' ~ filtros.q ~ '”')) %}{% endif %}
+    {% if filtros.escola and escolas|length > 1 %}{% for e in escolas if e.id|string == filtros.escola %}{% set _ = ativos.append(('escola', e.nome)) %}{% endfor %}{% endif %}
+    {% if filtros.ano %}{% set _ = ativos.append(('ano', filtros.ano)) %}{% endif %}
+    {% if filtros.turma %}{% for t in turmas if t.id|string == filtros.turma %}{% set _ = ativos.append(('turma', t.ano ~ ' — ' ~ t.nome)) %}{% endfor %}{% endif %}
+    {% if situacao and filtros.situacao %}{% set _ = ativos.append(('situacao', rotulos_sit.get(filtros.situacao, filtros.situacao))) %}{% endif %}
+    {% if ativos %}
+    <div class="filter-bar__chips" aria-label="Filtros ativos">
+      {% for chave, rotulo in ativos %}
+        {% set sem = base.copy() %}{% set _ = sem.update({chave: ''}) %}
+        {% if chave == 'escola' %}{% set _ = sem.update(turma='') %}{% endif %}
+        <a class="chip" href="{{ url_for(endpoint, **sem) }}" aria-label="Remover filtro {{ rotulo }}">{{ rotulo }}{{ ui.icon('x') }}</a>
+      {% endfor %}
+    </div>
+    {% endif %}
+  </div>
+</form>
+{%- endmacro %}
+
+{# ---------- DataTable (com seleção para revogação em lote) ---------- #}
+{% macro data_table(linhas, passeio, filtros=None, total_revogaveis=0) -%}
+{% set revogaveis = ('AUTORIZADO', 'NAO_AUTORIZADO') %}
+<form method="post" action="{{ url_for('admin.revogar_lote') }}" class="js-revogacao" id="form-revogacao">
+  <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+  <input type="hidden" name="passeio" value="{{ passeio.public_id }}">
+  <input type="hidden" name="voltar" value="{{ request.full_path }}">
+  <input type="hidden" name="todos_filtrados" value="0" class="js-todos-filtrados">
+  {% if filtros %}{% for k in ('q', 'escola', 'ano', 'turma', 'situacao') %}<input type="hidden" name="f_{{ k }}" value="{{ filtros[k] }}">{% endfor %}{% endif %}
+
+  <div class="bulk-bar" role="region" aria-label="Ações em lote" hidden>
+    <span class="bulk-bar__count" aria-live="polite"><strong class="js-qtd">0</strong> selecionado(s)</span>
+    <button type="button" class="btn btn--link btn--sm js-todos-filtro" hidden>Selecionar todos os {{ total_revogaveis }} revogáveis do filtro</button>
+    <span class="bulk-bar__spacer"></span>
+    <button type="button" class="btn btn--ghost btn--sm js-limpar-selecao">Limpar seleção</button>
+    <button type="button" class="btn btn--danger btn--sm js-abrir-revogacao">{{ ui.icon('ban') }}Revogar selecionados</button>
+  </div>
+
+<div class="table-wrap">
+<table class="data-table data-table--selecao">
+  <thead><tr>
+    <th scope="col" class="col-check"><input type="checkbox" class="js-marcar-pagina" aria-label="Selecionar todos os revogáveis desta página"></th>
+    <th scope="col">Aluno</th><th scope="col">Turma</th><th scope="col">Responsável</th>
+    <th scope="col">Situação</th><th scope="col">Data</th><th scope="col">Documento</th>
+  </tr></thead>
+  <tbody>
+  {% for l in linhas %}
+    {% set pode = l.autorizacao and l.situacao in revogaveis %}
+    <tr{% if pode %} class="is-revogavel"{% endif %}>
+      <td class="col-check">{% if pode %}<input type="checkbox" name="aut" value="{{ l.autorizacao.public_id }}" data-nome="{{ l.aluno.nome }}" class="js-sel" aria-label="Selecionar {{ l.aluno.nome }}">{% endif %}</td>
+      <td data-label="Aluno"><a href="{{ url_for('admin.aluno_detalhe', passeio_id=passeio.public_id, aluno_id=l.aluno.public_id) }}"><strong>{{ l.aluno.nome }}</strong></a>
+        <br><span class="muted small">Matr. {{ l.aluno.matricula }} · {{ l.aluno.escola.nome }}</span></td>
+      <td data-label="Turma">{{ l.aluno.turma.ano|replace(' Ano', '') }} {{ l.aluno.turma.nome|replace('Turma ', '') }}</td>
+      <td data-label="Responsável">{{ l.responsavel_nome }}</td>
+      <td data-label="Situação">{{ ui.status_badge(l.situacao) }}</td>
+      <td data-label="Data">{{ l.data or '—' }}</td>
+      <td data-label="Documento">
+        <div class="row-actions">
+        {% if l.autorizacao and l.autorizacao.documento %}
+          <a class="btn btn--outline btn--xs" href="{{ url_for('admin.documento_pdf', public_id=l.autorizacao.documento.public_id) }}" target="_blank" rel="noopener">{{ ui.icon('file') }}PDF</a>
+        {% endif %}
+        {% if pode %}
+          <a class="btn btn--ghost btn--xs btn--danger-text js-revogar-um" data-aut="{{ l.autorizacao.public_id }}"
+             href="{{ url_for('admin.aluno_detalhe', passeio_id=passeio.public_id, aluno_id=l.aluno.public_id) }}#revogar">{{ ui.icon('ban') }}Revogar</a>
+        {% elif not (l.autorizacao and l.autorizacao.documento) %}<span class="muted">—</span>{% endif %}
+        </div>
+      </td>
+    </tr>
+  {% else %}
+    <tr><td colspan="7" class="center muted">Nenhum registro encontrado com os filtros atuais.</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+</div>
+
+  <dialog class="modal" id="modal-revogar" aria-labelledby="revogar-titulo">
+    <div class="modal__box">
+      <h2 id="revogar-titulo" class="modal__title">Revogar autorização</h2>
+      <p class="modal__text js-revogar-resumo"></p>
+      <ul class="lista-conf lista-conf--nao js-revogar-lista"></ul>
+      <label for="motivo-lote">Motivo da revogação <small class="muted">(aplicado a todos os selecionados)</small></label>
+      <textarea id="motivo-lote" name="motivo" class="input" rows="3" minlength="5" maxlength="300"
+                placeholder="Ex.: Atividade cancelada pela unidade escolar por previsão de chuva forte."></textarea>
+      <label class="declaracao">
+        <input type="checkbox" class="js-revogar-confirma">
+        <span>Confirmo a revogação. O histórico será mantido e os responsáveis poderão responder novamente dentro do prazo.</span>
+      </label>
+      <div class="modal__actions">
+        <button type="button" class="btn btn--secondary js-revogar-cancelar">Cancelar</button>
+        <button type="submit" class="btn btn--danger js-revogar-enviar" disabled>{{ ui.icon('ban') }}Revogar</button>
+      </div>
+    </div>
+  </dialog>
+</form>
+{%- endmacro %}
+
+{# ---------- ReportExport ---------- #}
+{% macro report_export(passeio, tipo, filtros) -%}
+{% set params = dict(passeio=passeio.public_id, relatorio=tipo, escola=filtros.escola, turma=filtros.turma, ano=filtros.ano, situacao=filtros.situacao, q=filtros.q) %}
+<div class="export-group" role="group" aria-label="Exportar">
+  <a class="btn btn--outline btn--xs" href="{{ url_for('admin.exportar', formato='pdf', **params) }}" target="_blank" rel="noopener">PDF</a>
+  <a class="btn btn--outline btn--xs" href="{{ url_for('admin.exportar', formato='xlsx', **params) }}">XLSX</a>
+  <a class="btn btn--outline btn--xs" href="{{ url_for('admin.exportar', formato='csv', **params) }}">CSV</a>
+  <a class="btn btn--ghost btn--xs" href="{{ url_for('admin.imprimir', **params) }}" target="_blank" rel="noopener">{{ ui.icon('print') }}Imprimir</a>
+</div>
+{%- endmacro %}
+
+{# ---------- Paginação ---------- #}
+{% macro paginacao(pagina, total_paginas, endpoint) -%}
+{% if total_paginas > 1 %}
+<nav class="pagination" aria-label="Paginação">
+  {% set args = request.args.to_dict() %}
+  {% if pagina > 1 %}{% set _ = args.update(pagina=pagina - 1) %}<a class="btn btn--ghost btn--sm" href="{{ url_for(endpoint, **args) }}">Anterior</a>{% endif %}
+  <span>Página {{ pagina }} de {{ total_paginas }}</span>
+  {% if pagina < total_paginas %}{% set _ = args.update(pagina=pagina + 1) %}<a class="btn btn--ghost btn--sm" href="{{ url_for(endpoint, **args) }}">Próxima</a>{% endif %}
+</nav>
+{% endif %}
+{%- endmacro %}
+
+
+{# ---------- Galeria de ilustrações por tipo de evento ---------- #}
+{% macro galeria_ilustracoes(nome, selecionada) -%}
+<fieldset class="galeria span-2">
+  <legend>Escolha uma ilustração pronta</legend>
+  <div class="galeria__grid">
+  {% for chave, rotulo in ILUSTRACOES.items() %}
+    <label class="galeria__item">
+      <input type="radio" name="{{ nome }}" value="{{ chave }}" {% if chave == selecionada %}checked{% endif %}>
+      <img src="{{ url_ilustracao(chave) }}" alt="" width="160" height="85" loading="lazy">
+      <span>{{ rotulo }}</span>
+    </label>
+  {% endfor %}
+  </div>
+</fieldset>
+{%- endmacro %}

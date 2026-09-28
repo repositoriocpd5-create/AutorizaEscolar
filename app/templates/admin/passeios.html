@@ -1,0 +1,36 @@
+{% extends "admin/base_admin.html" %}
+{% import "components/ui.html" as ui with context %}
+{% import "admin/_admin_ui.html" as aui with context %}
+{% block title %}Passeios{% endblock %}
+{% block content %}
+<div class="page-head">
+  <h1 class="page-title">Passeios e eventos</h1>
+  {% if not admin.escola_id %}<a class="btn btn--primary" href="{{ url_for('admin.passeio_form') }}">{{ ui.icon('plus') }}Novo passeio</a>{% endif %}
+</div>
+<div class="table-wrap">
+<table class="data-table">
+  <thead><tr><th>Nome</th><th>Destino</th><th>Data</th><th>Prazo</th><th>Participantes</th><th>Situação</th><th></th></tr></thead>
+  <tbody>
+  {% for p, estado, n in lista %}
+    <tr>
+      <td data-label="Nome"><strong>{{ p.nome }}</strong></td>
+      <td data-label="Destino">{{ p.destino }}</td>
+      <td data-label="Data">{{ p.data|data_br }} {{ p.hora_saida|hora_br }}</td>
+      <td data-label="Prazo">{{ p.data_limite|data_hora_local_br }}</td>
+      <td data-label="Participantes">{{ n }}</td>
+      <td data-label="Situação">
+        {% if not p.ativo %}<span class="badge badge--closed">Inativo</span>
+        {% elif estado.aberto %}<span class="badge badge--ok">{{ ui.icon('check') }}Recebendo respostas</span>
+        {% elif estado.encerrado %}<span class="badge badge--closed">{{ ui.icon('flag') }}Encerrado</span>
+        {% else %}<span class="badge badge--canceled">{{ ui.icon('lock') }}Prazo encerrado</span>{% endif %}
+      </td>
+      <td class="nowrap">
+        <a class="btn btn--ghost btn--xs" href="{{ url_for('admin.dashboard', passeio=p.public_id) }}">Painel</a>
+        {% if not admin.escola_id %}<a class="btn btn--outline btn--xs" href="{{ url_for('admin.passeio_form', public_id=p.public_id) }}">{{ ui.icon('edit') }}Editar</a>{% endif %}
+      </td>
+    </tr>
+  {% else %}<tr><td colspan="7" class="center muted">Nenhum passeio cadastrado.</td></tr>{% endfor %}
+  </tbody>
+</table>
+</div>
+{% endblock %}

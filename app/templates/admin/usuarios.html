@@ -1,0 +1,58 @@
+{% extends "admin/base_admin.html" %}
+{% import "components/ui.html" as ui with context %}
+{% import "admin/_admin_ui.html" as aui with context %}
+{% block title %}Usuários{% endblock %}
+{% block content %}
+<h1 class="page-title">Usuários do painel</h1>
+<p class="muted">Usuários da <strong>rede</strong> veem todas as escolas e gerenciam passeios e configurações.
+  Usuários de uma <strong>unidade escolar</strong> veem apenas os próprios alunos e podem revogar autorizações deles.</p>
+
+<div class="table-wrap">
+<table class="data-table">
+  <thead><tr><th>Nome</th><th>Usuário</th><th>Acesso</th><th>Situação</th><th>Ações</th></tr></thead>
+  <tbody>
+  {% for u in lista %}
+  <tr>
+    <td data-label="Nome"><strong>{{ u.nome }}</strong>{% if u.id == admin.id %} <span class="muted small">(você)</span>{% endif %}</td>
+    <td data-label="Usuário"><code>{{ u.login }}</code></td>
+    <td data-label="Acesso">{{ u.escola.nome if u.escola else 'Toda a rede' }}</td>
+    <td data-label="Situação">{% if u.ativo %}<span class="badge badge--ok">{{ ui.icon('check') }}Ativo</span>{% else %}<span class="badge badge--closed">Inativo</span>{% endif %}</td>
+    <td data-label="Ações">
+      <div class="row-actions">
+        <form method="post" action="{{ url_for('admin.usuario_senha', uid=u.id) }}" class="inline-form inline-form--senha">
+          <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+          <label class="sr-only" for="senha-{{ u.id }}">Nova senha para {{ u.login }}</label>
+          <input id="senha-{{ u.id }}" type="password" name="senha" class="input input--sm" placeholder="Nova senha" minlength="10" autocomplete="new-password" required>
+          <button class="btn btn--outline btn--xs">Redefinir</button>
+        </form>
+        {% if u.id != admin.id %}
+        <form method="post" action="{{ url_for('admin.usuario_ativo', uid=u.id) }}" class="inline-form">
+          <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+          <button class="btn btn--ghost btn--xs">{{ 'Desativar' if u.ativo else 'Ativar' }}</button>
+        </form>
+        {% endif %}
+      </div>
+    </td>
+  </tr>
+  {% endfor %}
+  </tbody>
+</table>
+</div>
+
+<section class="card form-grid mt-1">
+  <h2 class="card-title span-2">Novo usuário</h2>
+  {% if erro %}<div class="alert alert--error span-2" role="alert">{{ erro }}</div>{% endif %}
+  <form method="post" class="form-grid span-2">
+    <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+    <label>Nome<input name="nome" class="input" required maxlength="120" value="{{ form.get('nome', '') }}"></label>
+    <label>Usuário (login)<input name="login" class="input" required maxlength="60" autocomplete="off" value="{{ form.get('login', '') }}"></label>
+    <label>Acesso
+      <select name="escola_id" class="input">
+        <option value="">Toda a rede</option>
+        {% for e in escolas %}<option value="{{ e.id }}" {% if form.get('escola_id') == e.id|string %}selected{% endif %}>{{ e.nome }}</option>{% endfor %}
+      </select></label>
+    <label>Senha inicial (mín. 10 caracteres)<input name="senha" type="password" class="input" required minlength="10" autocomplete="new-password"></label>
+    <div class="span-2 form-actions"><button class="btn btn--primary">{{ ui.icon('plus') }}Criar usuário</button></div>
+  </form>
+</section>
+{% endblock %}

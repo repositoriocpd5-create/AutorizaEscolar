@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 170" aria-hidden="true">
+  <defs>
+    <radialGradient id="g" cx="50%" cy="60%" r="55%"><stop offset="0" stop-color="#35A7D6" stop-opacity=".5"/><stop offset="1" stop-color="#35A7D6" stop-opacity="0"/></radialGradient>
+  </defs>
+  <ellipse cx="160" cy="100" rx="160" ry="70" fill="url(#g)"/>
+  <!-- Montanhas -->
+  <path d="M0 130 60 60l40 40 50-60 70 80 40-40 60 50v30H0z" fill="#0A4F73"/>
+  <path d="M130 60l20-20 22 25-12-4-10 8-8-6z" fill="#FFFBFC"/>
+  <path d="M40 82l20-22 16 16-8-2-8 6-6-4z" fill="#FFFBFC"/>
+  <!-- Estrada -->
+  <path d="M0 140h320v30H0z" fill="#2B3547"/>
+  <path d="M10 155h30M70 155h30M130 155h30M190 155h30M250 155h30" stroke="#FFC53D" stroke-width="4" stroke-linecap="round"/>
+  <!-- Ônibus escolar -->
+  <g transform="translate(92 82)">
+    <rect x="0" y="0" width="132" height="58" rx="10" fill="#FFC53D"/>
+    <rect x="0" y="36" width="132" height="6" fill="#0C1D32"/>
+    <g fill="#E2F0F7"><rect x="10" y="8" width="20" height="20" rx="3"/><rect x="36" y="8" width="20" height="20" rx="3"/><rect x="62" y="8" width="20" height="20" rx="3"/><rect x="88" y="8" width="20" height="20" rx="3"/></g>
+    <rect x="112" y="8" width="16" height="28" rx="3" fill="#E2F0F7"/>
+    <text x="45" y="52" font-family="Arial, sans-serif" font-size="9" font-weight="700" fill="#0C1D32">ESCOLAR</text>
+    <circle cx="28" cy="58" r="11" fill="#0C1D32"/><circle cx="28" cy="58" r="4" fill="#D9E2E9"/>
+    <circle cx="106" cy="58" r="11" fill="#0C1D32"/><circle cx="106" cy="58" r="4" fill="#D9E2E9"/>
+    <rect x="128" y="40" width="6" height="8" rx="2" fill="#E03A3E"/>
+  </g>
+  <!-- Nuvens / sol -->
+  <circle cx="270" cy="30" r="14" fill="#FFC53D"/>
+  <g fill="#FFFBFC" opacity=".9"><ellipse cx="60" cy="28" rx="22" ry="8"/><ellipse cx="74" cy="22" rx="14" ry="8"/><ellipse cx="220" cy="42" rx="18" ry="6"/></g>
+</svg>

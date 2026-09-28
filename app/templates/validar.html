@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% import "components/ui.html" as ui with context %}
+{% block title %}Validação de documento{% endblock %}
+{% block header %}{{ ui.app_header(titulo="Validação de documento") }}{% endblock %}
+{% block content %}
+<div class="narrow">
+{% if resultado %}
+  <section class="card validation validation--{{ 'ok' if resultado.vigente else 'warn' }}">
+    <span class="big-icon big-icon--{{ 'ok' if resultado.vigente else 'warn' }}" aria-hidden="true">{{ ui.icon('shield' if resultado.vigente else 'alert') }}</span>
+    <h1>Documento {{ 'válido' if resultado.vigente else 'autêntico, porém substituído' }}</h1>
+    <dl class="doc-dados">
+      <div><dt>Protocolo</dt><dd class="mono">{{ resultado.protocolo }}</dd></div>
+      <div><dt>Passeio</dt><dd>{{ resultado.passeio }} — {{ resultado.data_passeio }}</dd></div>
+      <div><dt>Data da autorização</dt><dd>{{ resultado.data_autorizacao }}</dd></div>
+      <div><dt>Aluno(s)</dt><dd>{{ resultado.alunos|join(', ') }}</dd></div>
+      <div><dt>Situação</dt><dd><strong class="status-text status-text--{{ 'ok' if resultado.vigente else 'warn' }}">{{ resultado.situacao }}</strong></dd></div>
+    </dl>
+    {% if not resultado.vigente %}
+      <p class="aviso aviso--warn">{{ ui.icon('info') }}<span>O documento foi emitido por este sistema, mas o responsável registrou uma resposta posterior ou a escola cancelou a autorização. Consulte a unidade escolar.</span></p>
+    {% endif %}
+    <p class="small muted">Por privacidade, exibimos apenas os dados mínimos necessários.</p>
+  </section>
+{% else %}
+  {% if status %}
+  <div class="alert alert--error" role="alert">
+    {% if status == 429 %}Muitas consultas seguidas. Aguarde alguns minutos.{% else %}Documento não encontrado. Verifique o código informado.{% endif %}
+  </div>
+  {% endif %}
+  <section class="card">
+    <h1 class="card-title">Validar documento</h1>
+    <p class="muted">Informe o código de validação impresso no documento ou leia o QR Code.</p>
+    <form method="get" action="{{ url_for('public.validar_form') }}" class="stack">
+      <label for="codigo">Código de validação</label>
+      <input id="codigo" name="codigo" class="input input--lg mono" placeholder="XXXX-XXXX-XXXX" maxlength="14"
+             value="{{ codigo }}" autocomplete="off" required>
+      <button class="btn btn--primary btn--lg btn--block">Validar</button>
+    </form>
+  </section>
+{% endif %}
+</div>
+{% endblock %}

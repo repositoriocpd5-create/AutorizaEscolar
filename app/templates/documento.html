@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% import "components/ui.html" as ui with context %}
+{% block title %}Protocolo {{ doc.protocolo }}{% endblock %}
+{% block header %}{{ ui.app_header(titulo=doc.conteudo.passeio.nome, sair_url=url_for('public.sair'),
+    voltar_url=url_for('public.passeio', public_id=doc.passeio.public_id)) }}{% endblock %}
+{% block content %}
+{% set somente_aut = doc.itens|rejectattr('situacao', 'equalto', 'AUTORIZADO')|list|length == 0 %}
+<div class="doc-layout">
+  <div class="doc-main">
+    {% if novo %}
+      {{ ui.success_card(somente_aut) }}
+    {% else %}
+      <h1 class="section-title">Comprovante de {{ 'autorização' if somente_aut else 'resposta' }}</h1>
+    {% endif %}
+
+    <section class="card doc-card">
+      <dl class="doc-dados">
+        <div><dt>Protocolo</dt><dd class="mono">{{ doc.protocolo }}</dd></div>
+        <div><dt>Registrado em</dt><dd>{{ doc.data_registro|data_hora_br }}</dd></div>
+        <div><dt>Passeio</dt><dd>{{ doc.conteudo.passeio.nome }} — {{ doc.conteudo.passeio.data }}</dd></div>
+        <div><dt>Código de validação</dt><dd class="mono">{{ doc.codigo_validacao }}</dd></div>
+      </dl>
+      <ul class="doc-alunos">
+        {% for a in doc.conteudo.alunos %}
+        <li>{{ ui.status_badge(a.situacao) }}<span><strong>{{ a.nome }}</strong><br><span class="muted small">{{ a.turma }}</span></span></li>
+        {% endfor %}
+      </ul>
+      {% if not vigente %}
+        <p class="aviso aviso--warn">{{ ui.icon('alert') }}<span>Este documento foi substituído por uma resposta posterior e não representa mais a situação atual.</span></p>
+      {% endif %}
+    </section>
+
+    <div class="stack">
+      <a class="btn btn--primary btn--lg btn--block" href="{{ url_for('public.documento_pdf', public_id=doc.public_id, download=1) }}">{{ ui.icon('download') }}Baixar PDF</a>
+      <a class="btn btn--outline btn--lg btn--block" href="{{ url_for('public.documento_pdf', public_id=doc.public_id) }}" target="_blank" rel="noopener">{{ ui.icon('eye') }}Visualizar PDF</a>
+      <a class="btn btn--secondary btn--lg btn--block" href="{{ url_for('public.passeio', public_id=doc.passeio.public_id) }}">{{ ui.icon('arrow-left') }}Voltar para meus filhos</a>
+    </div>
+  </div>
+  <div class="doc-preview">
+    {{ ui.pdf_viewer(url_for('public.documento_pdf', public_id=doc.public_id), 'Documento ' ~ doc.protocolo) }}
+  </div>
+</div>
+{% endblock %}
+{% block scripts %}<script src="{{ url_for('static', filename='js/documento.js') }}"></script>{% endblock %}

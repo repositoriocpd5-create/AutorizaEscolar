@@ -1,0 +1,222 @@
+{# ============================================================
+   Componentes reutilizáveis (macros Jinja)
+   ============================================================ #}
+
+{% macro icon(nome, classe="") -%}
+<svg class="icon {{ classe }}" aria-hidden="true" focusable="false"><use href="#i-{{ nome }}"></use></svg>
+{%- endmacro %}
+
+{# ---------- AppHeader ---------- #}
+{% macro app_header(titulo=None, sair_url=None, voltar_url=None) -%}
+<header class="app-header">
+  <div class="app-header__inner">
+    {% if voltar_url %}
+      <a class="icon-btn" href="{{ voltar_url }}" aria-label="Voltar">{{ icon('arrow-left') }}</a>
+    {% endif %}
+    <img class="brasao" src="{{ brasao_url }}" alt="Brasão" width="46" height="47">
+    <div class="app-header__text">
+      <strong class="app-header__title">{{ titulo or titulo_sistema }}</strong>
+      <span class="app-header__sub">{{ instituicao }}</span>
+    </div>
+    {% if sair_url %}
+    <form method="post" action="{{ sair_url }}" class="app-header__action">
+      <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+      <button type="submit" class="btn btn--ghost btn--sm">{{ icon('logout') }}<span>Sair</span></button>
+    </form>
+    {% endif %}
+  </div>
+</header>
+{%- endmacro %}
+
+{# ---------- StatusBadge (cor + ícone + texto: não depende só de cor) ---------- #}
+{% macro status_badge(situacao) -%}
+{% set mapa = {
+  'AGUARDANDO': ('pending', 'clock'), 'AUTORIZADO': ('ok', 'check'),
+  'NAO_AUTORIZADO': ('denied', 'x'), 'CANCELADO': ('canceled', 'ban'), 'ENCERRADO': ('closed', 'flag')} %}
+{% set par = mapa.get(situacao, ('pending', 'clock')) %}
+<span class="badge badge--{{ par[0] }}">{{ icon(par[1]) }}{{ situacao|situacao }}</span>
+{%- endmacro %}
+
+{# ---------- ResponsavelCard ---------- #}
+{% macro responsavel_card(resp) -%}
+<section class="resp-card" aria-label="Dados do responsável">
+  <div><span class="resp-card__label">Responsável</span><strong class="resp-card__name">{{ resp.nome }}</strong></div>
+  <div><span class="resp-card__label">CPF</span><span class="resp-card__cpf">{{ resp.cpf_mascarado }}</span></div>
+</section>
+{%- endmacro %}
+
+{# ---------- PasseioCard ---------- #}
+{% macro passeio_card(p, estado, compacto=False) -%}
+<section class="card passeio-card" aria-labelledby="passeio-titulo">
+  <div class="passeio-card__head">
+    {% set img = imagem_passeio(p) %}
+    <img class="passeio-card__icon passeio-card__icon--{{ 'foto' if img[1] else 'ilustracao' }}" src="{{ img[0] }}" alt="" width="84" height="64">
+    <div>
+      <h2 id="passeio-titulo" class="passeio-card__title">{{ p.nome }}</h2>
+      {% if p.descricao and not compacto %}<p class="muted small">{{ p.descricao }}</p>{% endif %}
+    </div>
+  </div>
+  <dl class="info-list">
+    <div><dt>{{ icon('pin') }}Destino</dt><dd>{{ p.destino }}</dd></div>
+    <div><dt>{{ icon('calendar') }}Data</dt><dd><strong>{{ p.data|data_br }}</strong></dd></div>
+    <div><dt>{{ icon('clock') }}Saída</dt><dd>{{ p.hora_saida|hora_br }}</dd></div>
+    <div><dt>{{ icon('return') }}Retorno previsto</dt><dd>{{ p.hora_retorno|hora_br }}</dd></div>
+    {% if not compacto %}
+    <div><dt>{{ icon('school') }}Local de saída</dt><dd>{{ p.local_saida }}</dd></div>
+    {% if p.transporte %}<div><dt>{{ icon('bus') }}Transporte</dt><dd>{{ p.transporte }}</dd></div>{% endif %}
+    {% endif %}
+  </dl>
+  {% if not compacto %}
+    {% if p.orientacoes %}
+    <details class="orientacoes">
+      <summary>Orientações da escola</summary>
+      <p>{{ p.orientacoes }}</p>
+    </details>
+    {% endif %}
+    {% if estado.aberto %}
+      <p class="deadline">{{ icon('clock') }}<span>Responda até <strong>{{ p.data_limite|data_hora_local_br }}</strong></span></p>
+      <p class="hint">{{ icon('info') }}<span>Leia as informações antes de registrar a autorização.</span></p>
+    {% elif estado.encerrado %}
+      <p class="deadline deadline--closed">{{ icon('flag') }}<span>Passeio encerrado.</span></p>
+    {% else %}
+      <p class="deadline deadline--closed">{{ icon('lock') }}<span>O prazo para respostas encerrou em {{ p.data_limite|data_hora_local_br }}.</span></p>
+    {% endif %}
+  {% endif %}
+</section>
+{%- endmacro %}
+
+{# ---------- Avatar (iniciais: evita tratar fotos de crianças) ---------- #}
+{% macro avatar(aluno) -%}
+<span class="avatar avatar--{{ (aluno.id % 6) }}" aria-hidden="true">{{ aluno.iniciais }}</span>
+{%- endmacro %}
+
+{# ---------- AlunoAuthorizationCard ---------- #}
+{% macro aluno_card(item, passeio) -%}
+{% set a = item.aluno %}
+{% set filho = 'minha filha' if a.sexo == 'F' else 'meu filho' %}
+<article class="card aluno-card aluno-card--{{ item.situacao|lower }}" data-aluno="{{ a.public_id }}"
+         data-nome="{{ a.nome }}" aria-labelledby="nome-{{ a.public_id }}">
+  <div class="aluno-card__head">
+    {{ avatar(a) }}
+    <div class="aluno-card__info">
+      <h3 id="nome-{{ a.public_id }}" class="aluno-card__name">{{ a.nome }}</h3>
+      <p class="aluno-card__meta">{{ a.turma.ano }} — {{ a.turma.nome }}</p>
+      <p class="aluno-card__meta muted">{{ a.escola.nome }}</p>
+    </div>
+    <div class="aluno-card__status">{{ status_badge(item.situacao) }}</div>
+  </div>
+
+  {% if item.autorizacao and item.situacao in ('AUTORIZADO', 'NAO_AUTORIZADO') %}
+    <div class="registro registro--{{ 'ok' if item.situacao == 'AUTORIZADO' else 'denied' }}">
+      <p class="registro__data">
+        {{ icon('check' if item.situacao == 'AUTORIZADO' else 'x') }}
+        <span>{% if item.respondido_por_outro %}Resposta registrada por outro responsável{% else %}Registrado{% endif %}
+        em <strong>{{ item.autorizacao.data_hora|data_hora_br }}</strong></span>
+      </p>
+      {% if not item.respondido_por_outro and item.autorizacao.documento %}
+      <div class="registro__acoes">
+        <a class="btn btn--outline btn--sm" href="{{ url_for('public.documento_pdf', public_id=item.autorizacao.documento.public_id, download=1) }}">{{ icon('download') }}Baixar autorização</a>
+        <a class="btn btn--ghost btn--sm" href="{{ url_for('public.documento', public_id=item.autorizacao.documento.public_id) }}">{{ icon('eye') }}Visualizar documento</a>
+      </div>
+      {% endif %}
+    </div>
+  {% endif %}
+
+  {% if item.aviso %}<p class="aviso">{{ icon('info') }}<span>{{ item.aviso }}</span></p>{% endif %}
+
+  {% if item.pode_alterar %}
+    <button type="button" class="btn btn--link js-alterar" aria-expanded="false" aria-controls="opcoes-{{ a.public_id }}">
+      {{ icon('edit') }}Alterar resposta
+    </button>
+  {% endif %}
+
+  {% if item.pode_responder or item.pode_alterar %}
+  <fieldset class="opcoes" id="opcoes-{{ a.public_id }}" {% if item.pode_alterar %}hidden{% endif %}>
+    <legend class="sr-only">Resposta para {{ a.nome }}</legend>
+    <label class="opcao opcao--neutra">
+      <input type="radio" name="resp-{{ a.public_id }}" value="" checked>
+      <span class="opcao__marca" aria-hidden="true"></span>
+      <span class="opcao__texto"><strong>{{ 'Manter resposta atual' if item.pode_alterar else 'Ainda não respondi' }}</strong></span>
+    </label>
+    {% if item.situacao != 'AUTORIZADO' %}
+    <label class="opcao opcao--sim">
+      <input type="radio" name="resp-{{ a.public_id }}" value="AUTORIZADO">
+      <span class="opcao__marca" aria-hidden="true">{{ icon('check') }}</span>
+      <span class="opcao__texto"><strong>Autorizo</strong>
+        <small>Autorizo {{ filho }} a participar do {{ passeio.nome }}, nas condições informadas acima.</small></span>
+    </label>
+    {% endif %}
+    {% if item.situacao != 'NAO_AUTORIZADO' %}
+    <label class="opcao opcao--nao">
+      <input type="radio" name="resp-{{ a.public_id }}" value="NAO_AUTORIZADO">
+      <span class="opcao__marca" aria-hidden="true">{{ icon('x') }}</span>
+      <span class="opcao__texto"><strong>Não autorizo</strong>
+        <small>{{ filho|capitalize }} não participará deste passeio.</small></span>
+    </label>
+    {% endif %}
+    {% if item.pode_alterar %}
+    <label class="opcao opcao--cancelar">
+      <input type="radio" name="resp-{{ a.public_id }}" value="CANCELADO">
+      <span class="opcao__marca" aria-hidden="true">{{ icon('ban') }}</span>
+      <span class="opcao__texto"><strong>Cancelar minha resposta</strong>
+        <small>A resposta registrada será cancelada. Você poderá responder novamente dentro do prazo.</small></span>
+    </label>
+    {% endif %}
+  </fieldset>
+  {% endif %}
+</article>
+{%- endmacro %}
+
+{# ---------- ConfirmAuthorizationModal ---------- #}
+{% macro confirm_modal(passeio) -%}
+<dialog class="modal" id="modal-confirmar" aria-labelledby="modal-titulo" aria-describedby="modal-desc">
+  <form method="dialog" class="modal__box" id="form-confirmar" novalidate>
+    <h2 id="modal-titulo" class="modal__title">Confirmar autorização</h2>
+    <p id="modal-desc" class="modal__text">Confira as respostas para o <strong>{{ passeio.nome }}</strong>
+      ({{ passeio.data|data_br }}, saída {{ passeio.hora_saida|hora_br }}, retorno {{ passeio.hora_retorno|hora_br }}).</p>
+
+    <div class="modal__grupo" id="grupo-autorizados" hidden>
+      <p class="modal__subtitle">Você está autorizando os alunos selecionados a participar do {{ passeio.nome }} nas condições apresentadas:</p>
+      <ul class="lista-conf lista-conf--sim" id="lista-autorizados"></ul>
+    </div>
+    <div class="modal__grupo" id="grupo-cancelados" hidden>
+      <p class="modal__subtitle modal__subtitle--cancel">Cancelar a resposta registrada de:</p>
+      <ul class="lista-conf lista-conf--cancel" id="lista-cancelados"></ul>
+    </div>
+    <div class="modal__grupo" id="grupo-negados" hidden>
+      <p class="modal__subtitle modal__subtitle--nao">Confirmo que <strong>NÃO</strong> autorizo a participação neste passeio de:</p>
+      <ul class="lista-conf lista-conf--nao" id="lista-negados"></ul>
+    </div>
+
+    <label class="declaracao">
+      <input type="checkbox" id="declaracao">
+      <span>{{ passeio.texto_termo }}</span>
+    </label>
+
+    <div class="alert alert--error" id="modal-erro" role="alert" hidden></div>
+    <p class="loading" id="modal-loading" role="status" aria-live="polite" hidden><span class="spinner" aria-hidden="true"></span><span class="js-loading-text">Registrando autorização...</span></p>
+
+    <div class="modal__actions">
+      <button type="button" class="btn btn--secondary" id="btn-cancelar">Cancelar</button>
+      <button type="submit" class="btn btn--success" id="btn-confirmar" disabled>{{ icon('check') }}<span class="js-confirmar-texto">Confirmar autorização</span></button>
+    </div>
+  </form>
+</dialog>
+{%- endmacro %}
+
+{# ---------- SuccessCard ---------- #}
+{% macro success_card(somente_autorizados) -%}
+<section class="success-card" aria-labelledby="sucesso-titulo">
+  <span class="success-card__icon" aria-hidden="true">{{ icon('check') }}</span>
+  <h1 id="sucesso-titulo" class="success-card__title" tabindex="-1">
+    {{ 'Autorizações registradas com sucesso!' if somente_autorizados else 'Respostas registradas com sucesso!' }}</h1>
+  <p class="success-card__text">O documento em PDF foi gerado com {{ 'as autorizações selecionadas' if somente_autorizados else 'as respostas selecionadas' }}.</p>
+</section>
+{%- endmacro %}
+
+{# ---------- PDFViewer ---------- #}
+{% macro pdf_viewer(url, titulo) -%}
+<section class="pdf-viewer" aria-label="Pré-visualização do documento">
+  <iframe src="{{ url }}#view=FitH" title="{{ titulo }}" loading="lazy"></iframe>
+</section>
+{%- endmacro %}

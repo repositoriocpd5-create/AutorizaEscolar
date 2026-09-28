@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% import "components/ui.html" as ui with context %}
+{% block title %}Meus passeios{% endblock %}
+{% block header %}{{ ui.app_header(sair_url=url_for('public.sair')) }}{% endblock %}
+{% block content %}
+{{ ui.responsavel_card(responsavel) }}
+<h1 class="section-title">Passeios</h1>
+{% if not passeios %}
+  <section class="card center-card">
+    <span class="big-icon big-icon--neutral" aria-hidden="true">{{ ui.icon('calendar') }}</span>
+    <p>No momento não há passeios com autorização pendente para seus filhos.</p>
+  </section>
+{% endif %}
+<ul class="lista-passeios">
+{% for p, estado in passeios %}
+  <li>
+    <a class="card passeio-link" href="{{ url_for('public.passeio', public_id=p.public_id) }}">
+      {% set img = imagem_passeio(p) %}<img class="passeio-card__icon passeio-card__icon--{{ 'foto' if img[1] else 'ilustracao' }}" src="{{ img[0] }}" alt="" width="84" height="64">
+      <span><strong>{{ p.nome }}</strong><br><span class="muted">{{ p.destino }} · {{ p.data|data_br }}</span></span>
+      <span class="badge {{ 'badge--pending' if estado.aberto else 'badge--closed' }}">{{ 'Aberto' if estado.aberto else 'Encerrado' }}</span>
+    </a>
+  </li>
+{% endfor %}
+</ul>
+{% endblock %}

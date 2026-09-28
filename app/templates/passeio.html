@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% import "components/ui.html" as ui with context %}
+{% block title %}{{ passeio.nome }}{% endblock %}
+{% block header %}{{ ui.app_header(titulo=passeio.nome, sair_url=url_for('public.sair'),
+    voltar_url=url_for('public.painel') if mais_de_um else None) }}{% endblock %}
+{% block content %}
+{% set respondiveis = itens|selectattr('pode_responder')|list %}
+{% set alteraveis = itens|selectattr('pode_alterar')|list %}
+{{ ui.responsavel_card(responsavel) }}
+{{ ui.passeio_card(passeio, estado) }}
+
+<h2 class="section-title">Seus filhos matriculados</h2>
+{% if not itens %}
+  <p class="card">Nenhum aluno vinculado a você participa deste passeio.</p>
+{% endif %}
+<form id="form-respostas" data-passeio="{{ passeio.public_id }}"
+      data-api="{{ url_for('api.registrar', public_id=passeio.public_id) }}" novalidate>
+  <div class="lista-alunos">
+  {% for item in itens %}
+    {{ ui.aluno_card(item, passeio) }}
+  {% endfor %}
+  </div>
+
+  {% if respondiveis or alteraveis %}
+  <div class="action-bar" id="action-bar">
+    <div class="action-bar__inner">
+      <p class="action-bar__count" id="contador" aria-live="polite">Selecione a resposta para cada filho.</p>
+      <button type="submit" class="btn btn--success btn--lg btn--block" id="btn-continuar" disabled>
+        {{ ui.icon('file') }}Gerar autorização em PDF
+      </button>
+      <p class="action-bar__note">{{ ui.icon('info') }}Será gerado um único arquivo em PDF com as respostas selecionadas.</p>
+    </div>
+  </div>
+  {% endif %}
+</form>
+<noscript><p class="alert alert--error">Ative o JavaScript do navegador para registrar a autorização.</p></noscript>
+{{ ui.confirm_modal(passeio) }}
+{% endblock %}
+{% block scripts %}<script src="{{ url_for('static', filename='js/passeio.js') }}"></script>{% endblock %}

@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 170" aria-hidden="true">
+  <defs>
+    <radialGradient id="g" cx="50%" cy="55%" r="55%"><stop offset="0" stop-color="#8A6FE0" stop-opacity=".45"/><stop offset="1" stop-color="#8A6FE0" stop-opacity="0"/></radialGradient>
+    <linearGradient id="p" x1="0" x2="1" y1="0" y2="1"><stop offset="0" stop-color="#F2B35C"/><stop offset="1" stop-color="#C96A2C"/></linearGradient>
+  </defs>
+  <ellipse cx="160" cy="95" rx="160" ry="75" fill="url(#g)"/>
+  <!-- Planeta com anel -->
+  <g transform="translate(92 76)">
+    <ellipse rx="62" ry="14" fill="none" stroke="#D9E2E9" stroke-width="5" transform="rotate(-18)"/>
+    <circle r="36" fill="url(#p)"/>
+    <path d="M-30-12q30 8 60-4M-34 8q34 10 66-2" stroke="#A8541F" stroke-width="4" fill="none" opacity=".6"/>
+    <path d="M-59 5A62 14-18 0 0 59-5" fill="none" stroke="#D9E2E9" stroke-width="5" transform="rotate(-18)"/>
+  </g>
+  <!-- Foguete -->
+  <g transform="translate(230 24) rotate(30)">
+    <path d="M20 0c14 12 18 34 14 60H6C2 34 6 12 20 0z" fill="#FFFBFC"/>
+    <circle cx="20" cy="26" r="7" fill="#007AAD" stroke="#0C1D32" stroke-width="2"/>
+    <path d="M6 44-6 64h12zM34 44l12 20H34z" fill="#E03A3E"/>
+    <path d="M10 60h20l-4 18h-12z" fill="#FFC53D"/>
+  </g>
+  <!-- Telescópio -->
+  <g transform="translate(182 110)">
+    <rect x="0" y="0" width="54" height="14" rx="4" fill="#D9E2E9" transform="rotate(-25)"/>
+    <path d="M24 12 12 52M26 12l14 40M25 12v40" stroke="#D9E2E9" stroke-width="3"/>
+  </g>
+  <g fill="#FFFBFC"><circle cx="30" cy="30" r="2"/><circle cx="170" cy="20" r="1.6"/><circle cx="300" cy="120" r="2"/><circle cx="20" cy="140" r="1.6"/><circle cx="160" cy="150" r="1.4"/></g>
+  <g fill="#FFC53D"><path d="M40 90l2.4 4.8 5.3.8-3.8 3.7.9 5.3-4.8-2.5-4.8 2.5.9-5.3-3.8-3.7 5.3-.8z"/><path d="M290 20l2 4 4.4.6-3.2 3.1.8 4.4-4-2.1-4 2.1.8-4.4-3.2-3.1 4.4-.6z"/></g>
+</svg>

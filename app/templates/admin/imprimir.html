@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% import "components/ui.html" as ui with context %}
+{% block title %}{{ titulo }}{% endblock %}
+{% block body_class %}page-print{% endblock %}
+{% block main_class %}container container--wide{% endblock %}
+{% block content %}
+<div class="print-actions no-print">
+  <button type="button" class="btn btn--primary js-print">{{ ui.icon('print') }}Imprimir</button>
+</div>
+<header class="print-head">
+  <p class="small">{{ instituicao|upper }}</p>
+  <h1>{{ titulo }}</h1>
+  <p>{{ passeio.nome }} — {{ passeio.destino }} — {{ passeio.data|data_br }}</p>
+  <p class="small">Total: {{ ind.total }} · Autorizados: {{ ind.autorizados }} · Não autorizados: {{ ind.nao_autorizados }} · Aguardando: {{ ind.aguardando }} · Gerado em {{ gerado.strftime('%d/%m/%Y %H:%M') }}</p>
+</header>
+<table class="print-table">
+  <thead><tr><th>Matrícula</th><th>Aluno</th><th>Escola</th><th>Turma</th><th>Responsável</th><th>Situação</th><th>Data</th><th>Protocolo</th></tr></thead>
+  <tbody>
+  {% for l in linhas %}
+    <tr><td>{{ l.aluno.matricula }}</td><td>{{ l.aluno.nome }}</td><td>{{ l.aluno.escola.nome }}</td>
+      <td>{{ l.aluno.turma.ano }} {{ l.aluno.turma.nome }}</td><td>{{ l.responsavel_nome }}</td>
+      <td>{{ l.situacao|situacao }}</td><td>{{ l.data }}</td><td>{{ l.protocolo }}</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% endblock %}
+{% block footer %}{% endblock %}
+{% block scripts %}<script src="{{ url_for('static', filename='js/admin.js') }}"></script>{% endblock %}

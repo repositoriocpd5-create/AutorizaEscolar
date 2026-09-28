@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% import "components/ui.html" as ui with context %}
+{% block title %}Acesso{% endblock %}
+{% block body_class %}page-login{% endblock %}
+{% block main_class %}login-wrap{% endblock %}
+{% block content %}
+<section class="hero" aria-labelledby="hero-titulo">
+  <div class="hero__inst">
+    <img src="{{ brasao_url }}" alt="Brasão" width="64" height="65">
+    <span><strong>{{ instituicao }}</strong>Autorização digital de passeios escolares</span>
+  </div>
+  <img class="hero__art{% if imagem_personalizada %} hero__art--foto{% endif %}" src="{{ imagem_url }}" alt="" width="320" height="170">
+  <h1 id="hero-titulo" class="hero__title">{{ titulo }}</h1>
+  <p class="hero__sub">{{ subtitulo }}</p>
+</section>
+
+<section class="card login-card" aria-labelledby="login-titulo">
+  <form id="form-login" novalidate>
+    <label id="login-titulo" for="cpf" class="login-card__label">Para acessar, informe o CPF do responsável:</label>
+    <input id="cpf" name="cpf" class="input input--lg" inputmode="numeric" autocomplete="off"
+           placeholder="000.000.000-00" maxlength="14" required aria-describedby="cpf-ajuda login-erro">
+    {% for nome, rotulo, tipo, ph in campos_extra %}
+      <label for="{{ nome }}" class="login-card__label login-card__label--extra">{{ rotulo }}</label>
+      <input id="{{ nome }}" name="{{ nome }}" type="{{ tipo }}" class="input input--lg" placeholder="{{ ph }}" required>
+    {% endfor %}
+    <div id="login-erro" class="alert alert--error" role="alert" hidden></div>
+    <button type="submit" class="btn btn--primary btn--lg btn--block" id="btn-entrar">
+      <span class="js-texto">Entrar</span>
+    </button>
+    <p class="secure-note">{{ ui.icon('lock') }}Seus dados estão protegidos.</p>
+    <p id="cpf-ajuda" class="small muted center">Utilize o CPF cadastrado como responsável pelo aluno na unidade escolar.</p>
+  </form>
+</section>
+{% if demo_mode %}
+<p class="demo-hint">Demonstração: use o CPF <strong>000.000.000-00</strong> (José da Silva, 2 filhos) ou <strong>529.982.247-25</strong> (Ana Paula Souza, 3 filhos).</p>
+{% endif %}
+{% endblock %}
+{% block footer %}
+<footer class="site-footer site-footer--dark">
+  <a href="{{ url_for('public.privacidade') }}">Privacidade e tratamento de dados</a>
+  <span aria-hidden="true">·</span>
+  <a href="{{ url_for('public.validar_form') }}">Validar documento</a>
+</footer>
+{% endblock %}
+{% block scripts %}<script src="{{ url_for('static', filename='js/login.js') }}"></script>{% endblock %}

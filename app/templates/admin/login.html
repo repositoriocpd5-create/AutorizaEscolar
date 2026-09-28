@@ -1,0 +1,20 @@
+{% extends "admin/base_admin.html" %}
+{% import "components/ui.html" as ui with context %}
+{% import "admin/_admin_ui.html" as aui with context %}
+{% block title %}Acesso administrativo{% endblock %}
+{% block content %}
+<section class="card narrow narrow--sm">
+  <h1 class="card-title">Acesso administrativo</h1>
+  <p class="muted small">Área restrita a servidores autorizados. Todos os acessos são registrados.</p>
+  {% if erro %}<div class="alert alert--error" role="alert">{{ erro }}</div>{% endif %}
+  <form method="post" class="stack">
+    <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+    <label for="login">Usuário</label>
+    <input id="login" name="login" class="input input--lg" autocomplete="username" required>
+    <label for="senha">Senha</label>
+    <input id="senha" name="senha" type="password" class="input input--lg" autocomplete="current-password" required>
+    <button class="btn btn--primary btn--lg btn--block">Entrar</button>
+  </form>
+  {% if demo_mode %}<p class="demo-hint demo-hint--light">Demonstração: credenciais definidas em <code>.env.example</code> (DEMO_ADMIN_LOGIN / DEMO_ADMIN_SENHA).</p>{% endif %}
+</section>
+{% endblock %}

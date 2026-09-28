@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 170" aria-hidden="true">
+  <defs>
+    <radialGradient id="g" cx="50%" cy="60%" r="55%"><stop offset="0" stop-color="#35A7D6" stop-opacity=".5"/><stop offset="1" stop-color="#35A7D6" stop-opacity="0"/></radialGradient>
+  </defs>
+  <ellipse cx="160" cy="105" rx="160" ry="70" fill="url(#g)"/>
+  <!-- Sol -->
+  <circle cx="262" cy="36" r="18" fill="#FFC53D"/>
+  <g stroke="#FFC53D" stroke-width="3" stroke-linecap="round"><path d="M262 8v-6M262 70v-6M234 36h-6M296 36h-6M242 16l-4-4M286 60l-4-4M282 16l4-4M242 56l-4 4"/></g>
+  <!-- Colinas -->
+  <path d="M0 150c50-40 110-40 160-10s110 30 160-10v40H0z" fill="#17823B"/>
+  <path d="M0 160c60-25 120-25 180-5s100 15 140-5v20H0z" fill="#1F9A48"/>
+  <!-- Roda-gigante -->
+  <g transform="translate(92 84)">
+    <path d="M0 0-26 62M0 0 26 62" stroke="#D9E2E9" stroke-width="4"/>
+    <circle r="44" fill="none" stroke="#FFFBFC" stroke-width="4"/>
+    <g stroke="#FFFBFC" stroke-width="2"><path d="M-44 0h88M0-44v88M-31-31l62 62M31-31l-62 62"/></g>
+    <g fill="#E03A3E"><circle cx="0" cy="-44" r="7"/><circle cx="0" cy="44" r="7"/></g>
+    <g fill="#FFC53D"><circle cx="-44" cy="0" r="7"/><circle cx="44" cy="0" r="7"/></g>
+    <g fill="#35A7D6"><circle cx="-31" cy="-31" r="7"/><circle cx="31" cy="31" r="7"/><circle cx="31" cy="-31" r="7"/><circle cx="-31" cy="31" r="7"/></g>
+    <circle r="6" fill="#0C1D32"/>
+  </g>
+  <!-- Árvores -->
+  <g transform="translate(196 78)">
+    <rect x="18" y="40" width="8" height="30" fill="#6B4423"/>
+    <circle cx="22" cy="30" r="24" fill="#2BAF5A"/><circle cx="10" cy="40" r="14" fill="#1F9A48"/><circle cx="36" cy="38" r="14" fill="#1F9A48"/>
+  </g>
+  <g transform="translate(248 96)">
+    <rect x="12" y="30" width="6" height="24" fill="#6B4423"/>
+    <circle cx="15" cy="24" r="17" fill="#2BAF5A"/>
+  </g>
+  <!-- Balões -->
+  <g transform="translate(26 40)">
+    <path d="M10 26q-4 20 6 40" stroke="#D9E2E9" fill="none"/><ellipse cx="10" cy="14" rx="10" ry="13" fill="#E03A3E"/>
+    <path d="M28 30q2 18-8 36" stroke="#D9E2E9" fill="none"/><ellipse cx="30" cy="18" rx="9" ry="12" fill="#FFC53D"/>
+  </g>
+</svg>

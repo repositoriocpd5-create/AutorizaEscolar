@@ -1,0 +1,11 @@
+.venv/
+__pycache__/
+*.pyc
+instance/
+.env
+.pytest_cache/
+
+# PDFs de teste baixados localmente e configuração local do editor/agente
+/autorizacao-*.pdf
+.claude/
+*.log

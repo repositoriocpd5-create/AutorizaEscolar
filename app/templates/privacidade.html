@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% import "components/ui.html" as ui with context %}
+{% block title %}Privacidade{% endblock %}
+{% block header %}{{ ui.app_header(voltar_url=url_for('public.login')) }}{% endblock %}
+{% block content %}
+<article class="card prose narrow">
+  <h1>Privacidade e tratamento de dados</h1>
+  <p class="lead">Os dados são utilizados exclusivamente para identificação do responsável e registro da autorização relacionada às atividades escolares.</p>
+  <h2>Quais dados tratamos</h2>
+  <ul>
+    <li>Nome e CPF do responsável — o CPF é armazenado de forma protegida (hash criptográfico) e exibido sempre mascarado.</li>
+    <li>Nome, turma e escola dos alunos vinculados.</li>
+    <li>A resposta registrada (autorizo / não autorizo), data, hora, versão do texto aceito e, para fins de auditoria, endereço IP e navegador utilizado.</li>
+  </ul>
+  <h2>Para que usamos</h2>
+  <p>Comprovar a manifestação do responsável sobre a participação do aluno no passeio, com base na execução de políticas públicas de educação e no cumprimento de obrigação da unidade escolar (LGPD, art. 7º e art. 14).</p>
+  <h2>Quem acessa</h2>
+  <p>Somente o próprio responsável e servidores autorizados da unidade escolar e da {{ instituicao }}. Todos os acessos administrativos são registrados.</p>
+  <h2>Por quanto tempo</h2>
+  <p>Os registros são mantidos pelo prazo definido na política de retenção documental da rede e, após isso, eliminados ou anonimizados.</p>
+  <h2>Seus direitos</h2>
+  <p>Você pode solicitar informações, correção ou esclarecimentos à unidade escolar ou ao encarregado de dados da {{ instituicao }}.</p>
+</article>
+{% endblock %}

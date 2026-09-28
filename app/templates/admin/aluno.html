@@ -1,0 +1,70 @@
+{% extends "admin/base_admin.html" %}
+{% import "components/ui.html" as ui with context %}
+{% import "admin/_admin_ui.html" as aui with context %}
+{% block title %}{{ aluno.nome }}{% endblock %}
+{% block content %}
+<a class="btn btn--ghost btn--sm" href="{{ url_for('admin.dashboard', passeio=passeio.public_id) }}">{{ ui.icon('arrow-left') }}Voltar ao painel</a>
+<div class="page-head">
+  <div>
+    <h1 class="page-title">{{ aluno.nome }}</h1>
+    <p class="muted">Matrícula {{ aluno.matricula }} · {{ aluno.turma.ano }} — {{ aluno.turma.nome }} · {{ aluno.escola.nome }}</p>
+  </div>
+  {{ ui.status_badge(aut.situacao if aut else 'AGUARDANDO') }}
+</div>
+
+<div class="grid-2">
+  <section class="card">
+    <h2 class="card-title">Responsáveis vinculados</h2>
+    <ul class="plain-list">
+      {% for v in aluno.vinculos if v.ativo %}
+      <li><strong>{{ v.responsavel.nome }}</strong> — {{ v.tipo_vinculo }}
+        {% if v.responsavel_legal %}<span class="badge badge--pending">Pode autorizar</span>{% else %}<span class="badge badge--closed">Sem permissão</span>{% endif %}
+        <br><span class="muted small">CPF {{ v.responsavel.cpf_mascarado }}</span></li>
+      {% endfor %}
+    </ul>
+  </section>
+
+  <section class="card">
+    <h2 class="card-title">Documentos emitidos</h2>
+    {% if docs %}
+    <ul class="plain-list">
+      {% for d in docs %}
+      <li><a href="{{ url_for('admin.documento_pdf', public_id=d.public_id) }}" target="_blank" rel="noopener">{{ ui.icon('file') }}{{ d.protocolo }}</a>
+        <span class="muted small">— {{ d.data_registro|data_hora_br }} · código {{ d.codigo_validacao }}</span></li>
+      {% endfor %}
+    </ul>
+    {% else %}<p class="muted">Nenhum documento emitido.</p>{% endif %}
+  </section>
+</div>
+
+<section class="card">
+  <h2 class="card-title">Histórico</h2>
+  {% if aut and aut.historico %}
+  <ol class="timeline">
+    {% for h in aut.historico|reverse %}
+    <li>
+      <strong>{{ (h.situacao_anterior|situacao) if h.situacao_anterior else 'Sem resposta' }} → {{ h.situacao_nova|situacao }}</strong>
+      <span class="muted small">{{ h.data_hora|data_hora_br(True) }}
+        {% if h.admin_id %}· revogado pela escola{% elif h.responsavel_id %}· pelo responsável{% endif %}
+        {% if h.ip %}· IP {{ h.ip }}{% endif %}</span>
+      {% if h.motivo %}<br><span class="small">Motivo: {{ h.motivo }}</span>{% endif %}
+    </li>
+    {% endfor %}
+  </ol>
+  <p class="small muted">Versão do texto aceito: v{{ aut.versao_texto }} · Origem: {{ aut.origem }}</p>
+  {% else %}<p class="muted">O responsável ainda não respondeu.</p>{% endif %}
+</section>
+
+{% if aut and aut.situacao != 'CANCELADO' %}
+<section class="card card--danger" id="revogar">
+  <h2 class="card-title">Revogar autorização</h2>
+  <p class="small muted">A unidade escolar pode revogar a resposta quando necessário (ex.: pedido presencial do responsável, restrição médica, questão disciplinar). O histórico é mantido, o documento anterior passa a constar como substituído na validação e o responsável poderá responder novamente dentro do prazo.</p>
+  <form method="post" action="{{ url_for('admin.cancelar', public_id=aut.public_id) }}" class="stack js-confirm" data-confirm="Confirma a revogação desta autorização?">
+    <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+    <label for="motivo">Motivo da revogação</label>
+    <input id="motivo" name="motivo" class="input" required minlength="5" maxlength="300">
+    <button class="btn btn--danger">{{ ui.icon('ban') }}Revogar autorização</button>
+  </form>
+</section>
+{% endif %}
+{% endblock %}

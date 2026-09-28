@@ -1,0 +1,88 @@
+{% extends "admin/base_admin.html" %}
+{% import "components/ui.html" as ui with context %}
+{% import "admin/_admin_ui.html" as aui with context %}
+{% block title %}{{ 'Editar passeio' if p.id else 'Novo passeio' }}{% endblock %}
+{% macro v(campo, padrao='') -%}{{ form.get(campo, '') if form else padrao }}{%- endmacro %}
+{% macro marcado(campo, atual) -%}{% if (form and form.get(campo)) or (not form and atual) %}checked{% endif %}{%- endmacro %}
+{% block content %}
+<a class="btn btn--ghost btn--sm" href="{{ url_for('admin.passeios') }}">{{ ui.icon('arrow-left') }}Voltar</a>
+<h1 class="page-title">{{ 'Editar passeio' if p.id else 'Novo passeio' }}</h1>
+{% if erros %}
+<div class="alert alert--error" role="alert"><ul>{% for e in erros %}<li>{{ e }}</li>{% endfor %}</ul></div>
+{% endif %}
+<form method="post" enctype="multipart/form-data" class="form-sections">
+  <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+
+  <section class="card form-grid">
+    <h2 class="card-title span-2">Informações do passeio</h2>
+    <label class="span-2">Nome do passeio<input name="nome" class="input" required maxlength="160" value="{{ v('nome', p.nome or '') }}" placeholder="Ex.: Passeio ao Cinema"></label>
+    <label class="span-2">Descrição<textarea name="descricao" class="input" rows="2">{{ v('descricao', p.descricao or '') }}</textarea></label>
+    <label>Destino<input name="destino" class="input" required value="{{ v('destino', p.destino or '') }}"></label>
+    <label>Local de saída<input name="local_saida" class="input" required value="{{ v('local_saida', p.local_saida or '') }}"></label>
+    <label>Data<input type="date" name="data" class="input" required value="{{ v('data', p.data.isoformat() if p.data else '') }}"></label>
+    <label>Transporte<input name="transporte" class="input" value="{{ v('transporte', p.transporte or '') }}"></label>
+    <label>Horário de saída<input type="time" name="hora_saida" class="input" required value="{{ v('hora_saida', p.hora_saida.strftime('%H:%M') if p.hora_saida else '') }}"></label>
+    <label>Horário de retorno<input type="time" name="hora_retorno" class="input" required value="{{ v('hora_retorno', p.hora_retorno.strftime('%H:%M') if p.hora_retorno else '') }}"></label>
+    <label class="span-2">Orientações aos responsáveis<textarea name="orientacoes" class="input" rows="3">{{ v('orientacoes', p.orientacoes or '') }}</textarea></label>
+  </section>
+
+  <section class="card form-grid js-imagem-evento">
+    <h2 class="card-title span-2">Imagem do passeio</h2>
+    <p class="muted small span-2">Aparece na tela inicial (quando este passeio está em destaque) e no card do passeio.
+      Escolha uma ilustração pronta ou envie uma foto/arte própria — a imagem enviada tem prioridade sobre a ilustração.</p>
+    {% set img = imagem_passeio(p) if p.id else (url_ilustracao(form.get('ilustracao') if form else 'cinema'), False) %}
+    <div class="img-preview img-preview--dark span-2"><img src="{{ img[0] }}" alt="Imagem atual do passeio" class="js-preview-alvo"></div>
+    {{ aui.galeria_ilustracoes('ilustracao', (form.get('ilustracao') if form else p.ilustracao) or 'cinema') }}
+    <div class="stack span-2">
+      <label>Ou envie uma imagem própria (PNG, JPG, WEBP ou GIF, até 5 MB)
+        <input type="file" name="imagem" class="input input--file js-preview" accept="image/png,image/jpeg,image/webp,image/gif"></label>
+      {% if p.imagem %}<label class="check"><input type="checkbox" name="remover_imagem" value="1"> Remover a imagem enviada e usar a ilustração escolhida</label>{% endif %}
+      <label class="check"><input type="checkbox" name="destaque" value="1" {{ marcado('destaque', em_destaque) }}> Exibir este passeio na tela inicial</label>
+    </div>
+  </section>
+
+  <section class="card form-grid">
+    <h2 class="card-title span-2">Prazos e regras de resposta</h2>
+    <label>Prazo final para resposta<input type="datetime-local" name="data_limite" class="input" required value="{{ v('data_limite', p.data_limite.strftime('%Y-%m-%dT%H:%M') if p.data_limite else '') }}"></label>
+    <label>Tempo para alterar ou cancelar (horas)
+      <input type="number" name="prazo_alteracao_horas" class="input" min="1" max="2160" step="1" value="{{ v('prazo_alteracao_horas', p.prazo_alteracao_horas or '') }}" placeholder="Em branco = até o prazo final">
+      <small class="muted">Após registrar a resposta, o responsável poderá alterá-la ou cancelá-la durante este período (limitado ao prazo final).</small>
+    </label>
+    <fieldset class="span-2 checks">
+      <legend>Permissões</legend>
+      <label class="check"><input type="checkbox" name="permite_alteracao" value="1" {{ marcado('permite_alteracao', p.permite_alteracao) }}> Permitir que o responsável altere ou cancele a resposta</label>
+      <label class="check"><input type="checkbox" name="ativo" value="1" {{ marcado('ativo', p.ativo) }}> Ativo (visível aos responsáveis)</label>
+    </fieldset>
+  </section>
+
+  <section class="card form-grid">
+    <h2 class="card-title span-2">Textos da autorização <span class="badge badge--pending">versão atual: v{{ p.versao_texto or 1 }}</span></h2>
+    <p class="muted small span-2">Alterar qualquer texto cria uma nova versão. Cada autorização registra a versão aceita pelo responsável; documentos já emitidos não mudam.</p>
+    <label class="span-2">Termo de confirmação (caixa obrigatória na janela de confirmação)
+      <textarea name="texto_termo" class="input" rows="2">{{ v('texto_termo', p.texto_termo or '') }}</textarea></label>
+    <label class="span-2">Declaração impressa no PDF
+      <textarea name="texto_declaracao" class="input" rows="4">{{ v('texto_declaracao', p.texto_declaracao or '') }}</textarea></label>
+  </section>
+
+  <section class="card">
+    <fieldset class="checks">
+      <legend>Escolas e turmas participantes</legend>
+      {% for e in escolas %}
+      <div class="turmas-escola">
+        <label class="check check--strong"><input type="checkbox" class="js-toggle-escola" data-escola="{{ e.id }}"> {{ e.nome }}</label>
+        <div class="turmas-grid">
+        {% for t in e.turmas %}
+          <label class="check"><input type="checkbox" name="turmas" value="{{ t.id }}" data-escola="{{ e.id }}" {% if t.id in selecionadas %}checked{% endif %}> {{ t.ano }} {{ t.nome }}</label>
+        {% endfor %}
+        </div>
+      </div>
+      {% endfor %}
+    </fieldset>
+  </section>
+
+  <div class="form-actions sticky-actions">
+    <a class="btn btn--secondary" href="{{ url_for('admin.passeios') }}">Cancelar</a>
+    <button class="btn btn--primary">Salvar passeio</button>
+  </div>
+</form>
+{% endblock %}

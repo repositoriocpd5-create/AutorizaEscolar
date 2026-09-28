@@ -1,0 +1,34 @@
+{% extends "admin/base_admin.html" %}
+{% import "components/ui.html" as ui with context %}
+{% import "admin/_admin_ui.html" as aui with context %}
+{% block title %}Auditoria{% endblock %}
+{% block content %}
+<div class="page-head">
+  <h1 class="page-title">Registro de auditoria</h1>
+  <form method="get" class="inline-form">
+    <label for="acao" class="sr-only">Ação</label>
+    <select id="acao" name="acao" class="input js-autosubmit">
+      <option value="">Todas as ações</option>
+      {% for a in acoes %}<option {% if a == acao %}selected{% endif %}>{{ a }}</option>{% endfor %}
+    </select>
+  </form>
+</div>
+<div class="table-wrap">
+<table class="data-table data-table--compact">
+  <thead><tr><th>Data/hora</th><th>Ação</th><th>Ator</th><th>Alvo</th><th>Detalhes</th><th>IP</th></tr></thead>
+  <tbody>
+  {% for r in registros %}
+  <tr>
+    <td data-label="Data/hora" class="nowrap">{{ r.data_hora|data_hora_br(True) }}</td>
+    <td data-label="Ação"><code>{{ r.acao }}</code></td>
+    <td data-label="Ator">{{ r.ator_tipo }}{% if r.ator_id %} #{{ r.ator_id }}{% endif %}</td>
+    <td data-label="Alvo" class="small">{{ r.alvo or '—' }}</td>
+    <td data-label="Detalhes" class="small">{% if r.detalhes %}{% for k, val in r.detalhes.items() %}{{ k }}: {{ val }}{% if not loop.last %}; {% endif %}{% endfor %}{% else %}—{% endif %}</td>
+    <td data-label="IP" class="small">{{ r.ip or '—' }}</td>
+  </tr>
+  {% else %}<tr><td colspan="6" class="center muted">Sem registros.</td></tr>{% endfor %}
+  </tbody>
+</table>
+</div>
+{{ aui.paginacao(pagina, total_paginas, 'admin.auditoria') }}
+{% endblock %}

@@ -1,0 +1,53 @@
+{% extends "admin/base_admin.html" %}
+{% import "components/ui.html" as ui with context %}
+{% import "admin/_admin_ui.html" as aui with context %}
+{% block title %}Configurações{% endblock %}
+{% block content %}
+<h1 class="page-title">Configurações gerais</h1>
+<p class="muted">Identidade exibida aos responsáveis, no painel e nos novos documentos PDF.</p>
+{% if erros %}<div class="alert alert--error" role="alert"><ul>{% for e in erros %}<li>{{ e }}</li>{% endfor %}</ul></div>{% endif %}
+<form method="post" enctype="multipart/form-data" class="form-sections">
+  <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+
+  <section class="card form-grid">
+    <h2 class="card-title span-2">Textos</h2>
+    <label class="span-2">Nome da instituição<input name="instituicao_nome" class="input" maxlength="160" value="{{ cfg.instituicao_nome }}"></label>
+    <label>Título do sistema<input name="titulo_sistema" class="input" maxlength="160" value="{{ cfg.titulo_sistema }}">
+      <small class="muted">Usado no cabeçalho e na tela inicial quando não há passeio em destaque.</small></label>
+    <label>Subtítulo da tela inicial<input name="subtitulo" class="input" maxlength="160" value="{{ cfg.subtitulo }}"></label>
+    <label class="span-2">Passeio em destaque na tela inicial
+      <select name="passeio_destaque" class="input">
+        <option value="">Automático (passeio ativo mais recente)</option>
+        {% for p in passeios %}<option value="{{ p.public_id }}" {% if cfg.passeio_destaque == p.public_id %}selected{% endif %}>{{ p.nome }} — {{ p.data|data_br }}{% if not p.ativo %} (inativo){% endif %}</option>{% endfor %}
+      </select>
+      <small class="muted">A tela inicial mostra o nome e a imagem deste passeio. A imagem de cada passeio é definida no cadastro do passeio.</small>
+    </label>
+  </section>
+
+  <section class="card form-grid">
+    <h2 class="card-title span-2">Brasão / logotipo</h2>
+    <div class="img-preview img-preview--brasao"><img src="{{ brasao_url }}" alt="Brasão atual"></div>
+    <div class="stack">
+      <label>Enviar novo brasão<input type="file" name="brasao" class="input input--file js-preview" accept="image/png,image/jpeg,image/webp,image/gif"></label>
+      <small class="muted">Prefira PNG com fundo transparente. Aparece no cabeçalho, na tela inicial, no ícone da aba e nos PDFs emitidos a partir de agora.</small>
+      {% if brasao_personalizado %}<label class="check"><input type="checkbox" name="remover_brasao" value="1"> Voltar ao brasão padrão</label>{% endif %}
+    </div>
+  </section>
+
+  <section class="card form-grid js-imagem-evento">
+    <h2 class="card-title span-2">Imagem padrão da tela inicial</h2>
+    <p class="muted small span-2">Usada apenas quando não há passeio ativo em destaque. Cada passeio tem a sua própria imagem, definida no cadastro do passeio.</p>
+    <div class="img-preview img-preview--dark span-2"><img src="{{ imagem_inicial_url }}" alt="Imagem atual da tela inicial" class="js-preview-alvo"></div>
+    {{ aui.galeria_ilustracoes('ilustracao_inicial', cfg.ilustracao_inicial) }}
+    <div class="stack span-2">
+      <label>Ou envie uma imagem própria
+        <input type="file" name="imagem_inicial" class="input input--file js-preview" accept="image/png,image/jpeg,image/webp,image/gif"></label>
+      {% if imagem_inicial_personalizada %}<label class="check"><input type="checkbox" name="remover_imagem_inicial" value="1"> Remover a imagem enviada e usar a ilustração escolhida</label>{% endif %}
+    </div>
+  </section>
+
+  <div class="form-actions sticky-actions">
+    <button class="btn btn--primary">Salvar configurações</button>
+  </div>
+</form>
+{% endblock %}
