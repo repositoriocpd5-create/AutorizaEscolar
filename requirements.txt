@@ -5,7 +5,11 @@ SQLAlchemy==2.1.1
 alembic==1.20.0
 reportlab==5.0.1
 openpyxl==3.1.5
+Pillow==12.3.0
 python-dotenv==1.2.3
 tzdata==2026.4
+# Produção (Render / Linux)
+gunicorn==26.2.0 ; sys_platform != "win32"
+psycopg[binary]==3.3.6
 # testes
 pytest==9.1.1

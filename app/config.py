@@ -16,6 +16,14 @@ def _bool(name: str, default: bool = False) -> bool:
     return os.environ.get(name, str(default)).strip().lower() in {"1", "true", "sim", "yes", "on"}
 
 
+def _url_banco(url: str) -> str:
+    """Provedores (Render, Heroku) entregam 'postgres://'; o SQLAlchemy usa o driver psycopg 3."""
+    for prefixo in ("postgres://", "postgresql://"):
+        if url.startswith(prefixo):
+            return "postgresql+psycopg://" + url[len(prefixo):]
+    return url
+
+
 class Config:
     # --- Segredos -----------------------------------------------------------
     SECRET_KEY = os.environ.get("SECRET_KEY", "dev-inseguro-troque-em-producao")
@@ -24,9 +32,9 @@ class Config:
     CPF_PEPPER = os.environ.get("CPF_PEPPER", "dev-pepper-troque-em-producao")
 
     # --- Banco de dados -----------------------------------------------------
-    SQLALCHEMY_DATABASE_URI = os.environ.get(
-        "DATABASE_URL", f"sqlite:///{BASE_DIR / 'instance' / 'passeios.db'}"
-    )
+    SQLALCHEMY_DATABASE_URI = _url_banco(
+        os.environ.get("DATABASE_URL", f"sqlite:///{BASE_DIR / 'instance' / 'passeios.db'}"))
+    SQLALCHEMY_ENGINE_OPTIONS = {"pool_pre_ping": True}
     SQLALCHEMY_TRACK_MODIFICATIONS = False
 
     # --- Armazenamento dos PDFs --------------------------------------------
@@ -36,7 +44,8 @@ class Config:
     INSTITUICAO_NOME = os.environ.get("INSTITUICAO_NOME", "Secretaria Municipal de Educação")
     TIMEZONE = os.environ.get("TIMEZONE", "America/Sao_Paulo")
     # URL pública usada no QR Code. Se vazio, usa o host da requisição.
-    PUBLIC_BASE_URL = os.environ.get("PUBLIC_BASE_URL", "").rstrip("/")
+    # No Render, RENDER_EXTERNAL_URL é definida automaticamente.
+    PUBLIC_BASE_URL = (os.environ.get("PUBLIC_BASE_URL") or os.environ.get("RENDER_EXTERNAL_URL", "")).rstrip("/")
 
     # --- Modo demonstração -----------------------------------------------
     # Em demonstração o CPF 000.000.000-00 (inválido pelo dígito verificador)

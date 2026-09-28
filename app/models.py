@@ -324,6 +324,14 @@ class AuditLog(db.Model):
     user_agent = db.Column(db.String(300))
 
 
+class Midia(db.Model):
+    """Imagens enviadas pelo painel, guardadas no banco (PNG já validado e regravado)."""
+    __tablename__ = "midia"
+    nome = db.Column(db.String(60), primary_key=True)
+    dados = db.Column(db.LargeBinary, nullable=False)
+    criado_em = db.Column(db.DateTime, nullable=False, default=utcnow)
+
+
 class Configuracao(db.Model):
     """Parâmetros gerais editáveis pelo painel (nome da instituição, brasão, etc.)."""
     __tablename__ = "configuracao"

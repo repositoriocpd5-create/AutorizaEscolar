@@ -39,7 +39,8 @@ def create_app(config_object=None) -> Flask:
         # nunca reutilize o usuário resolvido em uma requisição anterior.
         g.pop("responsavel", None)
         g.pop("admin", None)
-        if app.config["FORCAR_HTTPS"] and not request.is_secure:
+        # /saude fica fora do redirecionamento: a verificação da hospedagem chega por HTTP interno.
+        if app.config["FORCAR_HTTPS"] and not request.is_secure and request.path != "/saude":
             return redirect(request.url.replace("http://", "https://", 1), code=301)
         verificar_csrf()
 

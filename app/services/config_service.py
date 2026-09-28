@@ -74,26 +74,26 @@ def definir(chave: str, valor: str | None) -> None:
 
 def imagem_passeio(p: Passeio | None) -> tuple[str, bool]:
     """(url, é_foto_enviada) da imagem de um passeio: upload > ilustração escolhida."""
-    from .midia_service import caminho
-    if p is not None and caminho(p.imagem):
+    from .midia_service import existe
+    if p is not None and existe(p.imagem):
         return url_for("public.midia", nome=p.imagem), True
     return url_ilustracao(p.ilustracao if p is not None else None), False
 
 
 def imagem_inicial() -> tuple[str, bool]:
     """Imagem da tela inicial: passeio em destaque > imagem enviada nas configurações > ilustração padrão."""
-    from .midia_service import caminho
+    from .midia_service import existe
     destaque = passeio_destaque()
-    if destaque is not None and (caminho(destaque.imagem) or destaque.ilustracao):
+    if destaque is not None and (existe(destaque.imagem) or destaque.ilustracao):
         return imagem_passeio(destaque)
-    if caminho(obter("imagem_inicial")):
+    if existe(obter("imagem_inicial")):
         return url_for("public.midia", nome=obter("imagem_inicial")), True
     return url_ilustracao(obter("ilustracao_inicial")), False
 
 
 def url_midia(nome: str | None, padrao: str) -> str:
-    from .midia_service import caminho
-    if caminho(nome):
+    from .midia_service import existe
+    if existe(nome):
         return url_for("public.midia", nome=nome)
     return url_for("static", filename=padrao)
 

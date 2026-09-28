@@ -7,6 +7,32 @@ painel administrativo. Primeiro evento: **Passeio ao Cinema**.
 Stack: Python 3.12+ · Flask · SQLAlchemy/Alembic · ReportLab (PDF e QR Code) ·
 openpyxl (XLSX) · HTML/CSS/JS sem framework (mobile first).
 
+## Publicar no Render
+
+[![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/repositoriocpd5-create/AutorizaEscolar)
+
+### Banco no Supabase
+
+1. Supabase → **SQL Editor** → cole `docs/supabase/schema.sql` → **Run** (cria as 19 tabelas com RLS ativo).
+   Alternativa: `DATABASE_URL=<string do Supabase> flask --app wsgi db upgrade` faz o mesmo.
+2. Copie a string de conexão **Session pooler** (Project Settings → Database → Connection string)
+   e informe-a como `DATABASE_URL` no Render.
+
+A chave publicável do Supabase **não** é usada pelo sistema: com RLS ativo e sem políticas,
+a API REST pública não acessa nenhum dado.
+
+### Serviço web
+
+O arquivo `render.yaml` cria o serviço web (gunicorn), com
+`SECRET_KEY`, `CPF_PEPPER` e as senhas de demonstração **geradas pelo Render**
+(veja em *Dashboard → autoriza-escolar → Environment*). Cada `push` na branch `main`
+publica uma nova versão. Imagens enviadas ficam no banco, pois o disco do Render é
+apagado a cada nova versão; os PDFs são regenerados de forma idêntica a partir do banco.
+
+Observações do plano gratuito: o serviço do Render "dorme" após 15 min sem acesso
+(o primeiro acesso seguinte demora ~1 min) e o projeto gratuito do Supabase é pausado
+após uma semana sem uso — para uso real, use planos pagos e configure backups.
+
 ## Como executar (Windows / PowerShell)
 
 ```powershell

@@ -1,0 +1,53 @@
+# Blueprint do Render: cria o serviço web em um clique.
+# https://render.com/docs/blueprint-spec
+#
+# Banco: PostgreSQL do Supabase. Ao aplicar o blueprint, o Render pedirá o valor de
+# DATABASE_URL — use a string "Session pooler" (porta 5432) de
+# Supabase → Project Settings → Database → Connection string, com a senha do banco.
+# (A conexão "Direct" do Supabase é somente IPv6 e não funciona no Render.)
+services:
+  - type: web
+    name: autoriza-escolar
+    runtime: python
+    plan: free
+    region: virginia
+    branch: main
+    buildCommand: pip install -r requirements.txt
+    startCommand: bash render-start.sh
+    healthCheckPath: /saude
+    autoDeploy: true
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.12.8
+      - key: DATABASE_URL
+        sync: false   # informado no painel do Render (não versionado)
+      # Segredos gerados pelo Render (nunca versionados)
+      - key: SECRET_KEY
+        generateValue: true
+      - key: CPF_PEPPER
+        generateValue: true
+      # HTTPS atrás do proxy do Render
+      - key: PROXY_FIX
+        value: "true"
+      - key: FORCAR_HTTPS
+        value: "true"
+      - key: SESSION_COOKIE_SECURE
+        value: "true"
+      - key: TIMEZONE
+        value: America/Sao_Paulo
+      - key: INSTITUICAO_NOME
+        value: Secretaria Municipal de Educação
+      - key: AUTH_SEGUNDO_FATOR
+        value: nenhum
+      # Demonstração: popula dados fictícios na primeira inicialização.
+      # Para produção real: DEMO_MODE=false e AUTH_SEGUNDO_FATOR=data_nascimento.
+      - key: DEMO_MODE
+        value: "true"
+      - key: DEMO_ADMIN_LOGIN
+        value: admin
+      - key: DEMO_ADMIN_SENHA
+        generateValue: true
+      - key: DEMO_ESCOLA_LOGIN
+        value: escola.exemplo
+      - key: DEMO_ESCOLA_SENHA
+        generateValue: true

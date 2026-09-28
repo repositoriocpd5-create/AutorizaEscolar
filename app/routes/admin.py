@@ -415,10 +415,10 @@ def configuracoes():
     inicial = config_service.obter("imagem_inicial")
     return render_template("admin/configuracoes.html", cfg=config_service.todas(), erros=erros,
                            passeios=_passeios_visiveis(),
-                           brasao_personalizado=bool(midia_service.caminho(brasao)),
+                           brasao_personalizado=midia_service.existe(brasao),
                            imagem_inicial_url=config_service.url_midia(
                                inicial, "img/eventos/" + config_service.obter("ilustracao_inicial") + ".svg"),
-                           imagem_inicial_personalizada=bool(midia_service.caminho(inicial)))
+                           imagem_inicial_personalizada=midia_service.existe(inicial))
 
 
 # ---------------------------------------------------------------------------

@@ -193,3 +193,28 @@ def test_admin(client):
                 "/admin/imprimir?relatorio=aguardando"):
         assert client.get(url).status_code == 200, url
     assert "Pedro" in client.get("/admin/?q=pedro da silva").get_data(as_text=True)
+
+
+def test_saude_e_url_do_banco(client):
+    from app.config import _url_banco
+    assert client.get("/saude").get_json() == {"status": "ok"}
+    assert _url_banco("postgres://u:s@h:5432/d") == "postgresql+psycopg://u:s@h:5432/d"
+    assert _url_banco("postgresql://u:s@h/d") == "postgresql+psycopg://u:s@h/d"
+    assert _url_banco("sqlite:///x.db") == "sqlite:///x.db"
+
+
+def test_imagem_enviada_fica_no_banco(client):
+    import io
+    from PIL import Image
+    from app.models import Midia
+    from tests.test_admin_filtros import entrar_admin
+    token = entrar_admin(client)
+    buf = io.BytesIO()
+    Image.new("RGB", (20, 20), (200, 0, 0)).save(buf, "JPEG")
+    buf.seek(0)
+    client.post("/admin/configuracoes", content_type="multipart/form-data", data={
+        "_csrf": token, "instituicao_nome": "X", "brasao": (buf, "b.jpg")})
+    m = Midia.query.one()
+    assert m.dados.startswith(b"\x89PNG")  # regravado em PNG
+    r = client.get(f"/midia/{m.nome}")
+    assert r.status_code == 200 and r.mimetype == "image/png"

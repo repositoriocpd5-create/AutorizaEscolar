@@ -1,4 +1,5 @@
 """Páginas do responsável e página pública de validação."""
+import io
 import re
 
 from flask import (Blueprint, Response, abort, current_app, redirect, render_template, request,
@@ -34,10 +35,11 @@ def login():
 @bp.get("/midia/<nome>")
 def midia(nome):
     """Imagens enviadas pelo painel (já validadas e regravadas em PNG)."""
-    caminho = midia_service.caminho(nome)
-    if caminho is None:
+    dados = midia_service.dados(nome)
+    if dados is None:
         abort(404)
-    return send_file(caminho, mimetype="image/png", max_age=86400)
+    # Nome contém token aleatório e nunca é reaproveitado: pode ficar em cache.
+    return send_file(io.BytesIO(dados), mimetype="image/png", max_age=86400)
 
 
 @bp.post("/sair")
@@ -157,6 +159,15 @@ def validar(codigo):
     status, dados = consultar_validacao(codigo)
     return render_template("validar.html", resultado=dados, status=status, codigo=codigo), \
         (200 if status == 200 else status)
+
+
+@bp.get("/saude")
+def saude():
+    """Verificação de saúde para a hospedagem (confere a conexão com o banco)."""
+    from sqlalchemy import text
+    from ..extensions import db
+    db.session.execute(text("SELECT 1"))
+    return {"status": "ok"}
 
 
 @bp.get("/privacidade")

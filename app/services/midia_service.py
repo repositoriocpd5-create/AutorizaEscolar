@@ -3,13 +3,21 @@
 A imagem enviada é aberta com Pillow, validada e REGRAVADA em PNG com nome
 aleatório — nunca servimos o arquivo original (evita SVG/HTML disfarçado,
 metadados EXIF com localização, etc.).
+
+As imagens ficam no BANCO (tabela ``midia``), e não no disco: hospedagens como
+o Render apagam o disco a cada nova versão. Arquivos antigos em
+``instance/uploads`` continuam sendo lidos como alternativa.
 """
+import io
 import re
 import secrets
 from pathlib import Path
 
-from flask import current_app
+from flask import current_app, g
 from PIL import Image, UnidentifiedImageError
+
+from ..extensions import db
+from ..models import Midia
 
 TAMANHO_MAXIMO = 5 * 1024 * 1024
 FORMATOS = {"PNG", "JPEG", "WEBP", "GIF"}
@@ -20,22 +28,16 @@ class ErroImagem(ValueError):
     pass
 
 
-def pasta() -> Path:
-    p = Path(current_app.instance_path) / "uploads"
-    p.mkdir(parents=True, exist_ok=True)
-    return p
-
-
 def salvar(arquivo, prefixo: str, max_lado: int = 1200) -> str:
-    """Valida e salva o upload. Retorna o nome do arquivo gerado."""
+    """Valida e grava o upload (a gravação é confirmada no commit de quem chamou).
+    Retorna o nome gerado."""
     if arquivo is None or not arquivo.filename:
         raise ErroImagem("Nenhum arquivo enviado.")
-    dados = arquivo.read(TAMANHO_MAXIMO + 1)
-    if len(dados) > TAMANHO_MAXIMO:
+    bruto = arquivo.read(TAMANHO_MAXIMO + 1)
+    if len(bruto) > TAMANHO_MAXIMO:
         raise ErroImagem("A imagem deve ter no máximo 5 MB.")
     try:
-        import io
-        img = Image.open(io.BytesIO(dados))
+        img = Image.open(io.BytesIO(bruto))
         if img.format not in FORMATOS:
             raise ErroImagem("Formato não suportado. Envie PNG, JPG, WEBP ou GIF.")
         img.load()
@@ -46,13 +48,38 @@ def salvar(arquivo, prefixo: str, max_lado: int = 1200) -> str:
     if bbox:
         img = img.crop(bbox)
     img.thumbnail((max_lado, max_lado))
+    saida = io.BytesIO()
+    img.save(saida, "PNG", optimize=True)
     nome = f"{prefixo}-{secrets.token_hex(12)}.png"
-    img.save(pasta() / nome, "PNG", optimize=True)
+    db.session.add(Midia(nome=nome, dados=saida.getvalue()))
+    _cache().pop(nome, None)
     return nome
 
 
-def caminho(nome: str | None) -> Path | None:
+def _cache() -> dict:
+    if "_midia" not in g:
+        g._midia = {}
+    return g._midia
+
+
+def _arquivo_legado(nome: str) -> Path:
+    return Path(current_app.instance_path) / "uploads" / nome
+
+
+def dados(nome: str | None) -> bytes | None:
+    """Bytes PNG da imagem ou None se o nome for inválido/inexistente."""
     if not nome or not RE_NOME.match(nome):
         return None
-    p = pasta() / nome
-    return p if p.exists() else None
+    cache = _cache()
+    if nome not in cache:
+        m = db.session.get(Midia, nome)
+        if m is not None:
+            cache[nome] = m.dados
+        else:
+            legado = _arquivo_legado(nome)
+            cache[nome] = legado.read_bytes() if legado.exists() else None
+    return cache[nome]
+
+
+def existe(nome: str | None) -> bool:
+    return dados(nome) is not None

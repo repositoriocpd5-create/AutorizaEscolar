@@ -217,12 +217,15 @@ def obter_pdf(doc: Documento) -> bytes:
 def _brasao(nome_upload=None, largura=19 * mm):
     """Brasão configurado no painel (fotografado no documento) ou o padrão do sistema."""
     from reportlab.lib.utils import ImageReader
-    from .midia_service import caminho as caminho_upload
-    caminho = caminho_upload(nome_upload) or Path(current_app.static_folder) / "img" / "brasao-512.png"
-    if not caminho.exists():
-        return _logo()
-    w, h = ImageReader(str(caminho)).getSize()
+    from .midia_service import dados
+    bruto = dados(nome_upload)
+    if bruto is None:
+        padrao = Path(current_app.static_folder) / "img" / "brasao-512.png"
+        if not padrao.exists():
+            return _logo()
+        bruto = padrao.read_bytes()
+    w, h = ImageReader(io.BytesIO(bruto)).getSize()
     altura = largura * h / w
     if altura > 24 * mm:  # imagens muito altas
         largura, altura = largura * 24 * mm / altura, 24 * mm
-    return Image(str(caminho), width=largura, height=altura)
+    return Image(io.BytesIO(bruto), width=largura, height=altura)
