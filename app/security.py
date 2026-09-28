@@ -187,13 +187,30 @@ def admin_obrigatorio(fn):
     return wrapper
 
 
+def permissao_obrigatoria(permissao: str):
+    """Exige admin logado com a permissão (ver models.PERMISSOES). Caso contrário, 403."""
+    def deco(fn):
+        @wraps(fn)
+        def wrapper(*args, **kwargs):
+            adm = admin_atual()
+            if adm is None:
+                return redirect(url_for("admin.login", proximo=request.path))
+            if not adm.pode(permissao):
+                abort(403)
+            return fn(*args, **kwargs)
+        return wrapper
+    return deco
+
+
 # ---------------------------------------------------------------------------
 # Cabeçalhos de segurança
 # ---------------------------------------------------------------------------
 def aplicar_cabecalhos(response):
+    supabase = current_app.config.get("SUPABASE_URL", "")
     response.headers.setdefault(
         "Content-Security-Policy",
         "default-src 'self'; img-src 'self' data: blob:; style-src 'self'; script-src 'self'; "
+        f"connect-src 'self' {supabase}".rstrip() + "; "
         "object-src 'self'; frame-src 'self'; frame-ancestors 'self'; base-uri 'self'; form-action 'self'",
     )
     response.headers.setdefault("X-Content-Type-Options", "nosniff")

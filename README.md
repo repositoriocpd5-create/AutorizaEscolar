@@ -199,6 +199,26 @@ ou Gov.br, crie uma subclasse de `SegundoFator` em `app/services/auth_service.py
 
 Usuários de unidade escolar só enxergam e revogam alunos da própria escola (validado no servidor).
 
+### Perfis e permissões
+
+| Perfil | O que pode |
+|---|---|
+| **Administrador** | Tudo dentro do seu escopo (rede inteira ou uma escola) |
+| **Comum** | Consultar painel/alunos/PDFs + as permissões marcadas: revogar, exportar, cadastrar responsáveis e alunos, auditoria*, passeios*, configurações*, usuários* |
+
+\* Somente para usuários com escopo de rede. Ninguém desativa a si mesmo e sempre resta ao menos
+um Administrador da rede ativo. Com `SUPABASE_SECRET_KEY` (somente no servidor), o painel também
+cria contas no Supabase (convite por e-mail ou senha inicial), redefine senhas e bloqueia/desbloqueia
+usuários desativados. Para os links de convite/redefinição, cadastre `https://SEU-DOMINIO/admin/definir-senha`
+em *Supabase → Authentication → URL Configuration → Redirect URLs*.
+
+### Responsáveis e alunos
+
+*Admin → Responsáveis*: cadastro, edição e exclusão de responsáveis (CPF validado, único, guardado
+somente como hash) e de seus filhos — vincular aluno existente (matrícula/nome) ou cadastrar aluno novo
+(entra automaticamente nos passeios da turma). Responsável com autorizações registradas é desativado
+(não apagado) para preservar comprovantes.
+
 ### Login do painel (Supabase Authentication)
 
 Com `SUPABASE_URL` e `SUPABASE_PUBLISHABLE_KEY` definidos, o login do painel é feito com

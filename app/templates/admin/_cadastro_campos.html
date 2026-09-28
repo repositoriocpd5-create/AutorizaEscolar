@@ -1,0 +1,24 @@
+{# Campos do aluno (cadastro no vínculo e edição) — escola filtra turmas via JS #}
+{% macro campos_aluno(escolas, turmas, v) -%}
+<label class="span-2">Nome do aluno<input name="aluno_nome" class="input" required maxlength="160" value="{{ v('aluno_nome') }}"></label>
+<label>Matrícula<input name="matricula" class="input" required maxlength="30" value="{{ v('matricula') }}"></label>
+<label>Sexo
+  <select name="sexo" class="input">
+    <option value="">Não informar</option>
+    <option value="F" {% if v('sexo') == 'F' %}selected{% endif %}>Feminino</option>
+    <option value="M" {% if v('sexo') == 'M' %}selected{% endif %}>Masculino</option>
+  </select></label>
+<div class="span-2 grid-2 js-escola-turma">
+  <label>Escola
+    <select class="input js-sel-escola" {% if escolas|length == 1 %}disabled{% endif %}>
+      {% if escolas|length > 1 %}<option value="">Selecione…</option>{% endif %}
+      {% for e in escolas %}<option value="{{ e.id }}" {% if v('escola_id') == e.id|string %}selected{% endif %}>{{ e.nome }}</option>{% endfor %}
+    </select></label>
+  <label>Ano/Turma
+    <select name="turma_id" class="input js-sel-turma" required>
+      <option value="">Selecione…</option>
+      {% for t in turmas %}<option value="{{ t.id }}" data-escola="{{ t.escola_id }}" {% if v('turma_id') == t.id|string %}selected{% endif %}>{{ t.ano }} — {{ t.nome }}</option>{% endfor %}
+    </select></label>
+</div>
+<label>Data de nascimento <small class="muted">(opcional)</small><input type="date" name="aluno_nascimento" class="input" value="{{ v('aluno_nascimento') }}"></label>
+{%- endmacro %}

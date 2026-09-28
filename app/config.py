@@ -59,6 +59,9 @@ class Config:
     SUPABASE_URL = (os.environ.get("SUPABASE_URL") or os.environ.get("NEXT_PUBLIC_SUPABASE_URL", "")).rstrip("/")
     SUPABASE_PUBLISHABLE_KEY = (os.environ.get("SUPABASE_PUBLISHABLE_KEY")
                                 or os.environ.get("NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY", ""))
+    # Chave SECRETA (sb_secret_... ou service_role): somente no servidor. Habilita criar,
+    # convidar, definir senha e bloquear usuários do Supabase pelo painel.
+    SUPABASE_SECRET_KEY = os.environ.get("SUPABASE_SECRET_KEY") or os.environ.get("SUPABASE_SERVICE_ROLE_KEY", "")
     # E-mails que viram administradores da REDE no primeiro login.
     ADMIN_EMAILS = {e.strip().lower() for e in os.environ.get("ADMIN_EMAILS", "").split(",") if e.strip()}
     # Usuários de demonstração com senha local: só são criados se estas variáveis existirem.
@@ -98,6 +101,7 @@ class TestConfig(Config):
     TESTING = True
     SUPABASE_URL = ""
     SUPABASE_PUBLISHABLE_KEY = ""
+    SUPABASE_SECRET_KEY = ""
     ADMIN_EMAILS = set()
     DEMO_ADMIN_SENHA = "senha-teste-admin"
     DEMO_ESCOLA_SENHA = "senha-teste-escola"

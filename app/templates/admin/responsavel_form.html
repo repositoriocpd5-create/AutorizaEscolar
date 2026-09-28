@@ -1,0 +1,125 @@
+{% extends "admin/base_admin.html" %}
+{% import "components/ui.html" as ui with context %}
+{% import "admin/_admin_ui.html" as aui with context %}
+{% import "admin/_cadastro_campos.html" as cc %}
+{% block title %}{{ resp.nome if resp else 'Novo responsável' }}{% endblock %}
+{% macro v(campo, padrao='') -%}{{ form.get(campo, '') if form else padrao }}{%- endmacro %}
+{% block content %}
+<a class="btn btn--ghost btn--sm" href="{{ url_for('admin.responsaveis') }}">{{ ui.icon('arrow-left') }}Responsáveis</a>
+<h1 class="page-title">{{ resp.nome if resp else 'Novo responsável' }}</h1>
+{% if erro %}<div class="alert alert--error" role="alert">{{ erro }}</div>{% endif %}
+
+<form method="post" class="card form-grid" autocomplete="off">
+  <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+  <h2 class="card-title span-2">Dados do responsável</h2>
+  <label class="span-2">Nome completo<input name="nome" class="input" required maxlength="160" value="{{ v('nome', resp.nome if resp else '') }}"></label>
+  <label>{{ 'Alterar CPF' if resp else 'CPF' }}
+    <input name="cpf" class="input js-cpf mono" inputmode="numeric" maxlength="14" placeholder="000.000.000-00" {% if not resp %}required{% endif %} value="{{ v('cpf') }}">
+    {% if resp %}<small class="muted">Atual: <span class="mono">{{ resp.cpf_mascarado }}</span>. Deixe em branco para manter. O CPF completo não é armazenado.</small>{% endif %}
+  </label>
+  <label>Data de nascimento do responsável
+    <input type="date" name="data_nascimento" class="input">
+    <small class="muted">Usada como 2º fator de acesso (se habilitado). {% if resp and resp.data_nascimento_hash %}<strong>Já cadastrada</strong> — preencha só para alterar.{% else %}Não cadastrada.{% endif %}</small>
+  </label>
+  <label>E-mail <small class="muted">(opcional)</small><input type="email" name="email" class="input" maxlength="160" value="{{ v('email', resp.email or '' if resp else '') }}"></label>
+  <label>Telefone <small class="muted">(opcional)</small><input name="telefone" class="input" maxlength="30" inputmode="tel" value="{{ v('telefone', resp.telefone or '' if resp else '') }}"></label>
+  <fieldset class="span-2 checks">
+    <legend>Situação</legend>
+    <label class="check"><input type="radio" name="ativo" value="1" {% if not resp or resp.ativo %}checked{% endif %}> Ativo — pode acessar o sistema</label>
+    <label class="check"><input type="radio" name="ativo" value="0" {% if resp and not resp.ativo %}checked{% endif %}> Inativo — acesso bloqueado</label>
+    {% if resp and resp.data_nascimento_hash %}<label class="check"><input type="checkbox" name="limpar_nascimento" value="1"> Remover data de nascimento cadastrada</label>{% endif %}
+  </fieldset>
+  <div class="span-2 form-actions">
+    <a class="btn btn--secondary" href="{{ url_for('admin.responsaveis') }}">Cancelar</a>
+    <button class="btn btn--primary">{{ 'Salvar alterações' if resp else 'Cadastrar e vincular filhos' }}</button>
+  </div>
+</form>
+
+{% if resp %}
+<section class="card" id="filhos">
+  <h2 class="card-title">Filhos (alunos vinculados)</h2>
+  {% if resp.vinculos %}
+  <div class="table-wrap">
+  <table class="data-table">
+    <thead><tr><th>Aluno</th><th>Turma</th><th>Vínculo</th><th>Pode autorizar</th><th></th></tr></thead>
+    <tbody>
+    {% for vin in resp.vinculos %}
+      <tr>
+        <td data-label="Aluno"><strong>{{ vin.aluno.nome }}</strong><br><span class="muted small">Matr. {{ vin.aluno.matricula }} · {{ vin.aluno.escola.nome }}{% if not vin.aluno.ativo %} · inativo{% endif %}</span></td>
+        <td data-label="Turma">{{ vin.aluno.turma.ano }} — {{ vin.aluno.turma.nome }}</td>
+        <td data-label="Vínculo" colspan="2">
+          <form method="post" action="{{ url_for('admin.responsavel_vinculo', public_id=resp.public_id, vid=vin.id) }}" class="row-actions">
+            <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+            <select name="tipo_vinculo" class="input input--sm" aria-label="Tipo de vínculo">
+              {% for t in TIPOS_VINCULO %}<option {% if t == vin.tipo_vinculo %}selected{% endif %}>{{ t }}</option>{% endfor %}
+            </select>
+            <label class="check"><input type="checkbox" name="responsavel_legal" value="1" {% if vin.responsavel_legal %}checked{% endif %}> Pode autorizar</label>
+            <button class="btn btn--ghost btn--xs">Salvar</button>
+          </form>
+        </td>
+        <td class="nowrap">
+          <div class="row-actions">
+            <a class="btn btn--outline btn--xs" href="{{ url_for('admin.aluno_editar', public_id=vin.aluno.public_id, voltar=request.path ~ '#filhos') }}">{{ ui.icon('edit') }}Aluno</a>
+            <form method="post" action="{{ url_for('admin.responsavel_filhos', public_id=resp.public_id) }}" class="inline-form js-confirm"
+                  data-confirm="Remover o vínculo de {{ vin.aluno.nome }} com {{ resp.nome }}? O histórico de autorizações é mantido.">
+              <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+              <input type="hidden" name="acao" value="desvincular">
+              <input type="hidden" name="vinculo_id" value="{{ vin.id }}">
+              <button class="btn btn--ghost btn--xs btn--danger-text">{{ ui.icon('x') }}Desvincular</button>
+            </form>
+          </div>
+        </td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+  {% else %}
+  <p class="aviso aviso--warn">{{ ui.icon('info') }}<span>Nenhum filho vinculado — este responsável ainda não consegue acessar o sistema.</span></p>
+  {% endif %}
+
+  <div class="grid-largo mt-1">
+    <form method="post" action="{{ url_for('admin.responsavel_filhos', public_id=resp.public_id) }}" class="card card--sub stack">
+      <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+      <input type="hidden" name="acao" value="vincular">
+      <h3 class="card-title">{{ ui.icon('users') }} Vincular aluno já cadastrado</h3>
+      <label>Aluno (matrícula ou nome)
+        <input name="aluno_ref" class="input" list="lista-alunos" required placeholder="Digite para buscar…" autocomplete="off"></label>
+      <datalist id="lista-alunos">
+        {% for a in sugestoes_alunos %}<option value="{{ a.matricula }} — {{ a.nome }} ({{ a.turma.ano }} {{ a.turma.nome }})"></option>{% endfor %}
+      </datalist>
+      <div class="grid-2">
+        <label>Vínculo<select name="tipo_vinculo" class="input">{% for t in TIPOS_VINCULO %}<option>{{ t }}</option>{% endfor %}</select></label>
+        <label class="check check--center"><input type="checkbox" name="responsavel_legal" value="1" checked> Pode autorizar</label>
+      </div>
+      <button class="btn btn--primary">{{ ui.icon('plus') }}Vincular</button>
+    </form>
+
+    <form method="post" action="{{ url_for('admin.responsavel_filhos', public_id=resp.public_id) }}" class="card card--sub form-grid js-form-aluno">
+      <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+      <input type="hidden" name="acao" value="novo_aluno">
+      <h3 class="card-title span-2">{{ ui.icon('plus') }} Cadastrar novo aluno e vincular</h3>
+      {% macro vazio(c) -%}{%- endmacro %}
+      {{ cc.campos_aluno(escolas, turmas, vazio) }}
+      <label>Vínculo<select name="tipo_vinculo" class="input">{% for t in TIPOS_VINCULO %}<option>{{ t }}</option>{% endfor %}</select></label>
+      <label class="check check--center span-2"><input type="checkbox" name="responsavel_legal" value="1" checked> Pode autorizar</label>
+      <div class="span-2 form-actions"><button class="btn btn--primary">{{ ui.icon('plus') }}Cadastrar aluno</button></div>
+    </form>
+  </div>
+</section>
+
+<section class="card card--danger">
+  <h2 class="card-title">Excluir responsável</h2>
+  {% if historico %}
+  <p class="small muted">Este responsável possui <strong>autorizações registradas</strong>. Para preservar os comprovantes e o histórico, ele não é apagado: o cadastro será <strong>desativado</strong> e os vínculos removidos.</p>
+  {% else %}
+  <p class="small muted">Nenhuma autorização registrada. O cadastro e os vínculos serão apagados definitivamente (os alunos continuam cadastrados).</p>
+  {% endif %}
+  <form method="post" action="{{ url_for('admin.responsavel_excluir', public_id=resp.public_id) }}" class="js-confirm"
+        data-confirm="{{ 'Desativar' if historico else 'Excluir definitivamente' }} o responsável {{ resp.nome }}?">
+    <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+    <button class="btn btn--danger">{{ ui.icon('ban') }}{{ 'Desativar e remover vínculos' if historico else 'Excluir responsável' }}</button>
+  </form>
+</section>
+{% endif %}
+{% endblock %}

@@ -37,8 +37,8 @@ def modo_supabase() -> bool:
     return bool(cfg.get("SUPABASE_URL") and cfg.get("SUPABASE_PUBLISHABLE_KEY"))
 
 
-def _supabase_conferir(email: str, senha: str) -> str | None:
-    """Retorna o e-mail confirmado pelo Supabase, None se a senha estiver incorreta.
+def _supabase_conferir(email: str, senha: str) -> tuple[str, str] | None:
+    """Retorna (e-mail, id) confirmados pelo Supabase, None se a senha estiver incorreta.
     Lança RuntimeError se o serviço estiver indisponível."""
     cfg = current_app.config
     url = f'{cfg["SUPABASE_URL"].rstrip("/")}/auth/v1/token?grant_type=password'
@@ -55,14 +55,17 @@ def _supabase_conferir(email: str, senha: str) -> str | None:
     except (urllib.error.URLError, TimeoutError) as e:
         raise RuntimeError("Supabase indisponível") from e
     # O token do Supabase não é guardado: a sessão do painel é própria do sistema.
-    return ((dados.get("user") or {}).get("email") or "").lower() or None
+    usuario = dados.get("user") or {}
+    email_ok = (usuario.get("email") or "").lower()
+    return (email_ok, usuario.get("id") or "") if email_ok else None
 
 
 def _admin_por_email(email: str) -> AdminUsuario | None:
     adm = AdminUsuario.query.filter(func.lower(AdminUsuario.email) == email).first()
     if adm is None and email in current_app.config["ADMIN_EMAILS"]:
         # Primeiro acesso de um administrador da rede definido em ADMIN_EMAILS.
-        adm = AdminUsuario(nome=email.split("@")[0], login=email[:60], email=email, escola_id=None)
+        adm = AdminUsuario(nome=email.split("@")[0], login=email[:60], email=email, escola_id=None,
+                           perfil="ADMIN")
         db.session.add(adm)
         db.session.flush()
         audit.registrar(audit.Acao.ADMIN_ACAO, "SISTEMA", alvo=f"admin:{adm.id}",
@@ -85,9 +88,13 @@ def autenticar(identificador: str, senha: str) -> Resultado:
             return Resultado(erro=MSG_INDISPONIVEL)
         if not confirmado:
             return Resultado(erro=MSG_INCORRETO, falha_credencial=True)
-        adm = _admin_por_email(confirmado)
+        email_ok, uid = confirmado
+        adm = _admin_por_email(email_ok)
         if adm is None or not adm.ativo:
             return Resultado(erro=MSG_SEM_PERMISSAO, falha_credencial=True)
+        if uid and adm.supabase_id != uid:
+            adm.supabase_id = uid
+            db.session.commit()
         return Resultado(admin=adm)
 
     adm = AdminUsuario.query.filter_by(login=identificador, ativo=True).first()

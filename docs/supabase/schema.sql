@@ -361,5 +361,17 @@ ALTER TABLE admin_usuario ADD CONSTRAINT uq_admin_usuario_email UNIQUE (email);
 
 UPDATE alembic_version SET version_num='efba62287685' WHERE alembic_version.version_num = '1b0e7f733da3';
 
+-- Running upgrade efba62287685 -> 6802f6d3f643
+
+ALTER TABLE admin_usuario ADD COLUMN supabase_id VARCHAR(40);
+
+ALTER TABLE admin_usuario ADD COLUMN perfil VARCHAR(10) DEFAULT 'ADMIN' NOT NULL;
+
+ALTER TABLE admin_usuario ADD COLUMN permissoes VARCHAR(200) DEFAULT '' NOT NULL;
+
+ALTER TABLE admin_usuario ADD COLUMN criado_em TIMESTAMP WITHOUT TIME ZONE;
+
+UPDATE alembic_version SET version_num='6802f6d3f643' WHERE alembic_version.version_num = 'efba62287685';
+
 COMMIT;
 

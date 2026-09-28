@@ -69,6 +69,7 @@
 
   // Revogação: seleção individual, da página ou de todo o filtro, com motivo único
   document.querySelectorAll("form.js-revogacao").forEach(function (form) {
+    if (!form.querySelector(".bulk-bar")) return;  // usuário sem permissão de revogar
     var sels = Array.prototype.slice.call(form.querySelectorAll(".js-sel"));
     var marcarPagina = form.querySelector(".js-marcar-pagina");
     var barra = form.querySelector(".bulk-bar");
@@ -170,6 +171,70 @@
     });
 
     atualizar();
+  });
+
+  // Cadastro/edição de usuário: perfil, escopo e forma de criação no Supabase
+  document.querySelectorAll(".js-form-usuario").forEach(function (form) {
+    var escopo = form.querySelector(".js-escopo");
+    var permissoes = form.querySelector(".js-permissoes");
+    var senhaInicial = form.querySelector(".js-senha-inicial");
+    function sincronizar() {
+      var perfil = form.querySelector('input[name="perfil"]:checked');
+      var admin = perfil && perfil.value === "ADMIN";
+      var deEscola = escopo && escopo.value !== "";
+      if (permissoes && !permissoes.disabled) {
+        permissoes.classList.toggle("is-admin", admin);
+        permissoes.querySelectorAll("label.check").forEach(function (l) {
+          var chk = l.querySelector("input");
+          var bloqueada = admin || (deEscola && l.hasAttribute("data-somente-rede"));
+          chk.disabled = bloqueada;
+          if (admin) chk.checked = !(deEscola && l.hasAttribute("data-somente-rede"));
+          else if (deEscola && l.hasAttribute("data-somente-rede")) chk.checked = false;
+          l.classList.toggle("is-desabilitado", bloqueada);
+        });
+      }
+      if (senhaInicial) {
+        var criacao = form.querySelector('input[name="criacao"]:checked');
+        var comSenha = criacao && criacao.value === "senha";
+        senhaInicial.hidden = !comSenha;
+        senhaInicial.querySelector("input").required = comSenha;
+      }
+    }
+    form.addEventListener("change", sincronizar);
+    sincronizar();
+  });
+
+  // Cadastro de aluno: escola filtra as turmas
+  document.querySelectorAll(".js-escola-turma").forEach(function (box) {
+    var escola = box.querySelector(".js-sel-escola");
+    var turma = box.querySelector(".js-sel-turma");
+    function sincronizar() {
+      var alvo = escola.value || (escola.options.length === 1 ? escola.options[0].value : "");
+      Array.prototype.forEach.call(turma.options, function (op) {
+        if (!op.value) return;
+        var oculta = alvo !== "" && op.dataset.escola !== alvo;
+        op.hidden = oculta;
+        op.disabled = oculta;
+      });
+      var sel = turma.options[turma.selectedIndex];
+      if (sel && sel.disabled) turma.value = "";
+    }
+    // Ao editar, a escola inicial é a da turma selecionada
+    var atual = turma.options[turma.selectedIndex];
+    if (atual && atual.value && !escola.value) escola.value = atual.dataset.escola;
+    escola.addEventListener("change", sincronizar);
+    sincronizar();
+  });
+
+  // Máscara de CPF nos formulários do painel
+  document.querySelectorAll(".js-cpf").forEach(function (inp) {
+    inp.addEventListener("input", function () {
+      var d = inp.value.replace(/\D/g, "").slice(0, 11), r = d.slice(0, 3);
+      if (d.length > 3) r += "." + d.slice(3, 6);
+      if (d.length > 6) r += "." + d.slice(6, 9);
+      if (d.length > 9) r += "-" + d.slice(9, 11);
+      inp.value = r;
+    });
   });
 
   document.querySelectorAll(".js-print").forEach(function (b) {

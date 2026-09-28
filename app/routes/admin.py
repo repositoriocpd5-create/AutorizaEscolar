@@ -9,9 +9,11 @@ from .. import audit
 from ..extensions import db
 from ..formatacao import agora_local
 from ..models import (Aluno, AdminUsuario, AuditLog, Autorizacao, Documento, Escola, Passeio,
-                      PasseioAluno, Situacao, TEXTO_DECLARACAO_PADRAO, TEXTO_TERMO_PADRAO, Turma)
-from ..security import admin_atual, admin_obrigatorio, client_ip, excedeu_limite, registrar_tentativa
-from ..services import admin_auth_service, config_service, midia_service
+                      PasseioAluno, Perfil, PERMISSOES, PERMISSOES_PADRAO_COMUM, PERMISSOES_SOMENTE_REDE,
+                      Situacao, TEXTO_DECLARACAO_PADRAO, TEXTO_TERMO_PADRAO, Turma)
+from ..security import (admin_atual, admin_obrigatorio, client_ip, excedeu_limite, permissao_obrigatoria,
+                        registrar_tentativa)
+from ..services import admin_auth_service, config_service, midia_service, supabase_admin
 from ..services import relatorio_service as rel
 from ..services.autorizacao_service import ErroNegocio, cancelar_pela_escola, revogar_varias
 from ..services.passeio_service import estado_passeio, sincronizar_participantes
@@ -121,7 +123,7 @@ def dashboard():
 
 
 @bp.get("/exportar")
-@admin_obrigatorio
+@permissao_obrigatoria("exportar")
 def exportar():
     adm = admin_atual()
     passeio, _ = _passeio_selecionado()
@@ -152,7 +154,7 @@ def exportar():
 
 
 @bp.get("/relatorios")
-@admin_obrigatorio
+@permissao_obrigatoria("exportar")
 def relatorios():
     passeio, passeios = _passeio_selecionado()
     escolas, turmas, anos = _opcoes_filtro(admin_atual(), passeio)
@@ -162,7 +164,7 @@ def relatorios():
 
 
 @bp.get("/imprimir")
-@admin_obrigatorio
+@permissao_obrigatoria("exportar")
 def imprimir():
     passeio, _ = _passeio_selecionado()
     if passeio is None:
@@ -202,7 +204,7 @@ def aluno_detalhe(passeio_id, aluno_id):
 
 
 @bp.post("/autorizacoes/<public_id>/cancelar")
-@admin_obrigatorio
+@permissao_obrigatoria("revogar")
 def cancelar(public_id):
     aut = Autorizacao.query.filter_by(public_id=public_id).first_or_404()
     _aluno_no_escopo(aut.aluno.public_id)
@@ -215,7 +217,7 @@ def cancelar(public_id):
 
 
 @bp.post("/autorizacoes/revogar")
-@admin_obrigatorio
+@permissao_obrigatoria("revogar")
 def revogar_lote():
     """Revogação de uma ou várias autorizações com um único motivo."""
     adm = admin_atual()
@@ -311,11 +313,8 @@ def _ler_form_passeio(p: Passeio) -> list[str]:
 
 @bp.route("/passeios/novo", methods=["GET", "POST"])
 @bp.route("/passeios/<public_id>/editar", methods=["GET", "POST"])
-@admin_obrigatorio
+@permissao_obrigatoria("passeios")
 def passeio_form(public_id=None):
-    # Passeios são cadastrados pela rede; administradores de escola apenas acompanham.
-    if admin_atual().escola_id:
-        abort(403)
     p = Passeio.query.filter_by(public_id=public_id).first_or_404() if public_id else Passeio(
         texto_declaracao=TEXTO_DECLARACAO_PADRAO, texto_termo=TEXTO_TERMO_PADRAO,
         permite_alteracao=True, ativo=True, versao_texto=1)
@@ -361,7 +360,7 @@ def passeio_form(public_id=None):
 # Auditoria
 # ---------------------------------------------------------------------------
 @bp.get("/auditoria")
-@admin_obrigatorio
+@permissao_obrigatoria("auditoria")
 def auditoria():
     pagina = max(1, request.args.get("pagina", 1, type=int))
     acao = request.args.get("acao", "")
@@ -378,15 +377,9 @@ def auditoria():
 # ---------------------------------------------------------------------------
 # Configurações gerais (somente administradores da rede)
 # ---------------------------------------------------------------------------
-def _somente_rede():
-    if admin_atual().escola_id:
-        abort(403)
-
-
 @bp.route("/configuracoes", methods=["GET", "POST"])
-@admin_obrigatorio
+@permissao_obrigatoria("configuracoes")
 def configuracoes():
-    _somente_rede()
     erros = []
     if request.method == "POST":
         f = request.form
@@ -425,81 +418,199 @@ def configuracoes():
 
 
 # ---------------------------------------------------------------------------
-# Usuários administrativos (rede e unidades escolares)
+# Usuários do painel: perfis (Administrador/Comum), permissões e escopo
 # ---------------------------------------------------------------------------
+RE_EMAIL = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
+
+
+def _ler_perfil_e_acesso(u: AdminUsuario, f) -> str | None:
+    """Aplica perfil, escola e permissões do formulário. Retorna mensagem de erro ou None."""
+    perfil = f.get("perfil", Perfil.COMUM)
+    if perfil not in Perfil.ROTULOS:
+        return "Perfil inválido."
+    escola_id = f.get("escola_id", "")
+    escola = db.session.get(Escola, int(escola_id)) if escola_id.isdigit() else None
+    if escola_id and escola is None:
+        return "Unidade escolar inválida."
+    u.perfil = perfil
+    u.escola_id = escola.id if escola else None
+    perms = set(f.getlist("permissoes")) if perfil == Perfil.COMUM else set()
+    if u.escola_id:
+        perms -= PERMISSOES_SOMENTE_REDE  # nunca valem para usuários de escola
+    u.definir_permissoes(perms)
+    return None
+
+
+def _restara_admin_rede(excluindo: AdminUsuario | None = None) -> bool:
+    q = AdminUsuario.query.filter_by(ativo=True, perfil=Perfil.ADMIN, escola_id=None)
+    if excluindo is not None and excluindo.id:
+        q = q.filter(AdminUsuario.id != excluindo.id)
+    return q.count() > 0
+
+
+def _contexto_usuarios(**extra):
+    return dict(
+        modo_supabase=admin_auth_service.modo_supabase(), supabase_admin_ok=supabase_admin.disponivel(),
+        escolas=Escola.query.order_by(Escola.nome).all(), PERMISSOES=PERMISSOES,
+        PERMISSOES_SOMENTE_REDE=PERMISSOES_SOMENTE_REDE, Perfil=Perfil,
+        PERMISSOES_PADRAO_COMUM=PERMISSOES_PADRAO_COMUM, **extra)
+
+
+def _auditar_usuario(u, acao, **detalhes):
+    audit.registrar(audit.Acao.ADMIN_ACAO, "ADMIN", admin_atual().id, alvo=f"admin:{u.id}",
+                    detalhes={"acao": acao, **detalhes}, commit=False)
+
+
 @bp.route("/usuarios", methods=["GET", "POST"])
-@admin_obrigatorio
+@permissao_obrigatoria("usuarios")
 def usuarios():
-    _somente_rede()
     erro = None
+    supabase = admin_auth_service.modo_supabase()
     if request.method == "POST":
         f = request.form
-        supabase = admin_auth_service.modo_supabase()
         login_ = f.get("login", "").strip().lower()[:160 if supabase else 60]
         nome = f.get("nome", "").strip()[:120]
         senha = f.get("senha", "")
-        escola_id = f.get("escola_id", "")
-        escola = db.session.get(Escola, int(escola_id)) if escola_id.isdigit() else None
+        criacao = f.get("criacao", "existente")  # existente | senha | convite
+        u = AdminUsuario(nome=nome, login=login_[:60], email=login_ if supabase else None, ativo=True)
         if not login_ or not nome:
             erro = "Informe nome e " + ("e-mail." if supabase else "usuário.")
-        elif supabase and not re.match(r"^[^@\s]+@[^@\s]+\.[^@\s]+$", login_):
-            erro = "Informe um e-mail válido (o mesmo cadastrado no Supabase Authentication)."
-        elif not supabase and len(senha) < 10:
-            erro = "A senha deve ter pelo menos 10 caracteres."
+        elif supabase and not RE_EMAIL.match(login_):
+            erro = "Informe um e-mail válido."
         elif AdminUsuario.query.filter((AdminUsuario.login == login_[:60]) | (AdminUsuario.email == login_)).first():
-            erro = "Já existe um usuário com este login/e-mail."
-        elif escola_id and escola is None:
-            erro = "Unidade escolar inválida."
+            erro = "Já existe um usuário com este login/e-mail no painel."
+        elif (not supabase or criacao == "senha") and len(senha) < 10:
+            erro = "A senha deve ter pelo menos 10 caracteres."
+        elif supabase and criacao in ("senha", "convite") and not supabase_admin.disponivel():
+            erro = "Para criar a conta no Supabase por aqui, configure SUPABASE_SECRET_KEY no servidor."
         else:
-            u = AdminUsuario(login=login_[:60], nome=nome, escola_id=escola.id if escola else None,
-                             email=login_ if supabase else None)
-            if not supabase:
-                u.definir_senha(senha)
+            erro = _ler_perfil_e_acesso(u, f)
+        if not erro:
+            try:
+                if not supabase:
+                    u.definir_senha(senha)
+                elif criacao == "senha":
+                    u.supabase_id = supabase_admin.criar_usuario(login_, senha, nome)
+                elif criacao == "convite":
+                    u.supabase_id = supabase_admin.convidar(login_, nome)
+            except supabase_admin.ErroSupabase as e:
+                erro = str(e)
+        if not erro:
             db.session.add(u)
             db.session.flush()
-            audit.registrar(audit.Acao.ADMIN_ACAO, "ADMIN", admin_atual().id, alvo=f"admin:{u.id}",
-                            detalhes={"acao": "criar_usuario", "login": login_,
-                                      "escola": escola.codigo if escola else "rede"}, commit=False)
+            _auditar_usuario(u, "criar_usuario", login=login_, perfil=u.perfil, criacao=criacao,
+                             escola=u.escola.codigo if u.escola else "rede", permissoes=u.permissoes)
             db.session.commit()
-            flash(f"Usuário {login_} criado.", "sucesso")
+            msg = {"convite": "Convite enviado por e-mail.", "senha": "Conta criada no Supabase com a senha informada."}
+            flash(f"Usuário {login_} cadastrado. " + msg.get(criacao if supabase else "", ""), "sucesso")
             return redirect(url_for("admin.usuarios"))
-    return render_template("admin/usuarios.html", lista=AdminUsuario.query.order_by(AdminUsuario.nome).all(),
-                           escolas=Escola.query.order_by(Escola.nome).all(), erro=erro, form=request.form,
-                           modo_supabase=admin_auth_service.modo_supabase(),
-                           supabase_url=current_app.config.get("SUPABASE_URL", ""))
+    lista = AdminUsuario.query.order_by(AdminUsuario.ativo.desc(), AdminUsuario.nome).all()
+    return render_template("admin/usuarios.html", lista=lista, erro=erro, form=request.form,
+                           **_contexto_usuarios())
+
+
+@bp.route("/usuarios/<int:uid>", methods=["GET", "POST"])
+@permissao_obrigatoria("usuarios")
+def usuario_editar(uid):
+    u = db.session.get(AdminUsuario, uid) or abort(404)
+    proprio = u.id == admin_atual().id
+    erro = None
+    if request.method == "POST":
+        f = request.form
+        antes = {"perfil": u.perfil, "escola": u.escola_id, "permissoes": u.permissoes}
+        nome = f.get("nome", "").strip()[:120]
+        if not nome:
+            erro = "Informe o nome."
+        elif proprio:
+            u.nome = nome  # não altera o próprio perfil/escopo (evita perder o acesso)
+        else:
+            with db.session.no_autoflush:
+                erro = _ler_perfil_e_acesso(u, f)
+                if not erro and antes["perfil"] == Perfil.ADMIN and antes["escola"] is None \
+                        and not (u.perfil == Perfil.ADMIN and u.escola_id is None) and not _restara_admin_rede(u):
+                    erro = "É necessário manter ao menos um Administrador da rede ativo."
+            u.nome = nome
+        if erro:
+            db.session.rollback()
+        else:
+            _auditar_usuario(u, "editar_usuario", antes=antes,
+                             depois={"perfil": u.perfil, "escola": u.escola_id, "permissoes": u.permissoes})
+            db.session.commit()
+            flash("Usuário atualizado.", "sucesso")
+            return redirect(url_for("admin.usuarios"))
+    return render_template("admin/usuario_form.html", u=u, proprio=proprio, erro=erro, **_contexto_usuarios())
 
 
 @bp.post("/usuarios/<int:uid>/ativo")
-@admin_obrigatorio
+@permissao_obrigatoria("usuarios")
 def usuario_ativo(uid):
-    _somente_rede()
     u = db.session.get(AdminUsuario, uid) or abort(404)
     if u.id == admin_atual().id:
         flash("Você não pode desativar o próprio usuário.", "erro")
-    else:
-        u.ativo = not u.ativo
-        audit.registrar(audit.Acao.ADMIN_ACAO, "ADMIN", admin_atual().id, alvo=f"admin:{u.id}",
-                        detalhes={"acao": "ativar" if u.ativo else "desativar"}, commit=False)
-        db.session.commit()
-        estado = "ativado" if u.ativo else "desativado"
-        flash(f"Usuário {u.login} {estado}.", "sucesso")
+        return redirect(url_for("admin.usuarios"))
+    novo = not u.ativo
+    if not novo and u.perfil == Perfil.ADMIN and u.escola_id is None and not _restara_admin_rede(u):
+        flash("É necessário manter ao menos um Administrador da rede ativo.", "erro")
+        return redirect(url_for("admin.usuarios"))
+    aviso = ""
+    if u.email and supabase_admin.disponivel():
+        try:
+            u.supabase_id = u.supabase_id or supabase_admin.buscar_id(u.email)
+            if u.supabase_id:
+                supabase_admin.bloquear(u.supabase_id, bloqueado=not novo)
+                aviso = " Também foi " + ("desbloqueado" if novo else "bloqueado") + " no Supabase."
+        except supabase_admin.ErroSupabase as e:
+            aviso = f" Atenção: não foi possível atualizar o Supabase ({e})."
+    u.ativo = novo
+    _auditar_usuario(u, "ativar" if novo else "desativar")
+    db.session.commit()
+    estado = "ativado" if novo else "desativado"
+    flash(f"Usuário {u.email or u.login} {estado}.{aviso}", "sucesso" if "Atenção" not in aviso else "erro")
     return redirect(url_for("admin.usuarios"))
 
 
 @bp.post("/usuarios/<int:uid>/senha")
-@admin_obrigatorio
+@permissao_obrigatoria("usuarios")
 def usuario_senha(uid):
-    _somente_rede()
-    if admin_auth_service.modo_supabase():
-        abort(404)  # senhas são gerenciadas no Supabase Authentication
     u = db.session.get(AdminUsuario, uid) or abort(404)
+    modo = request.form.get("modo", "definir")  # definir | link
     senha = request.form.get("senha", "")
-    if len(senha) < 10:
-        flash("A nova senha deve ter pelo menos 10 caracteres.", "erro")
-    else:
-        u.definir_senha(senha)
-        audit.registrar(audit.Acao.ADMIN_ACAO, "ADMIN", admin_atual().id, alvo=f"admin:{u.id}",
-                        detalhes={"acao": "redefinir_senha"}, commit=False)
-        db.session.commit()
-        flash(f"Senha de {u.login} redefinida.", "sucesso")
-    return redirect(url_for("admin.usuarios"))
+    try:
+        if not admin_auth_service.modo_supabase():
+            if len(senha) < 10:
+                raise supabase_admin.ErroSupabase("A nova senha deve ter pelo menos 10 caracteres.")
+            u.definir_senha(senha)
+            msg = f"Senha de {u.login} redefinida."
+        elif modo == "link":
+            supabase_admin.enviar_redefinicao(u.email)
+            msg = f"Link de redefinição de senha enviado para {u.email}."
+        else:
+            if not supabase_admin.disponivel():
+                raise supabase_admin.ErroSupabase("Configure SUPABASE_SECRET_KEY para definir senhas por aqui.")
+            if len(senha) < 10:
+                raise supabase_admin.ErroSupabase("A nova senha deve ter pelo menos 10 caracteres.")
+            u.supabase_id = u.supabase_id or supabase_admin.buscar_id(u.email)
+            if not u.supabase_id:
+                raise supabase_admin.ErroSupabase("Usuário não encontrado no Supabase Authentication.")
+            supabase_admin.definir_senha(u.supabase_id, senha)
+            msg = f"Senha de {u.email} redefinida no Supabase."
+    except supabase_admin.ErroSupabase as e:
+        flash(str(e), "erro")
+        return redirect(url_for("admin.usuario_editar", uid=u.id))
+    _auditar_usuario(u, "redefinir_senha", modo=modo)
+    db.session.commit()
+    flash(msg, "sucesso")
+    return redirect(url_for("admin.usuario_editar", uid=u.id))
+
+
+@bp.get("/definir-senha")
+def definir_senha():
+    """Destino dos e-mails de convite e de redefinição do Supabase. O token chega no
+    fragmento da URL (#access_token=...) e é usado apenas pelo navegador."""
+    return render_template("admin/definir_senha.html",
+                           supabase_url=current_app.config.get("SUPABASE_URL", ""),
+                           supabase_key=current_app.config.get("SUPABASE_PUBLISHABLE_KEY", ""))
+
+
+# Rotas de cadastro de responsáveis/alunos (mesmo blueprint).
+from . import admin_cadastros  # noqa: E402,F401
