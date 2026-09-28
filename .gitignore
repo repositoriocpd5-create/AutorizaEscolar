@@ -24,3 +24,4 @@ docs/supabase/alunos*.sql
 
 # Imagens de referência soltas na raiz (não fazem parte do projeto)
 /*.png
+docs/supabase/corrigir_*.sql
