@@ -21,3 +21,6 @@ docs/supabase/alunos*.sql
 # Segredos de produção (ex.: CPF_PEPPER do Render) — nunca versionar
 .env.*
 !.env.example
+
+# Imagens de referência soltas na raiz (não fazem parte do projeto)
+/*.png
