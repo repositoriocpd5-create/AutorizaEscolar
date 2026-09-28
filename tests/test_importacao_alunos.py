@@ -36,9 +36,13 @@ def test_leitura_normaliza_e_valida():
 
 def test_sql_gerado_nao_contem_pepper_e_tem_protecoes():
     sql = imp.gerar_sql(imp.ler(FICTICIOS))
-    assert "COLE-AQUI-O-CPF_PEPPER" in sql.splitlines()[4] and "'00000000'" in sql.splitlines()[3]
+    linhas = sql.splitlines()
+    assert "'00000000'" in linhas[3] and "COLE-AQUI-O-CPF_PEPPER" in linhas[4]
+    assert sql.count("DO $importacao$") == 1 and "CREATE TEMP TABLE _cfg" not in sql   # um único bloco
     assert "extensions.hmac(" in sql and "ON CONFLICT (matricula)" in sql
-    assert "RAISE EXCEPTION" in sql and sql.count("INSERT INTO responsavel ") == 2
+    assert "parece um CNPJ/CPF" in sql and sql.count("INSERT INTO responsavel ") == 2
+    pronto = imp.gerar_sql(imp.ler(FICTICIOS), inep="33000009", pepper="chave-secreta-de-teste-123")
+    assert "'33000009'" in pronto.splitlines()[3] and "ARQUIVO PRONTO" in pronto.splitlines()[0]
 
 
 def test_importacao_local_e_idempotente(client, app):

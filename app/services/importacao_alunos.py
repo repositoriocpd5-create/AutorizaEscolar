@@ -134,123 +134,135 @@ def _lit(v) -> str:
     return "'" + str(v).replace("'", "''") + "'"
 
 
-def gerar_sql(leitura: Leitura) -> str:
+def gerar_sql(leitura: Leitura, inep: str | None = None, pepper: str | None = None) -> str:
+    """SQL em UM ÚNICO bloco DO (funciona em qualquer editor, inclusive o do Supabase,
+    que pode não manter tabelas temporárias entre comandos). O INEP e o CPF_PEPPER ficam
+    em variáveis nas primeiras linhas; podem vir preenchidos (arquivo local, fora do Git)."""
     colunas = ["aluno_id", "nome", "nascimento", "cpf_aluno", "ano", "turma", "segmento", "ano_letivo",
                "status", "ativo", "pai", "cpf_pai", "mae", "cpf_mae"]
-    valores = ",\n  ".join(
+    valores = ",\n    ".join(
         "(" + ", ".join(_lit(getattr(l, c)) for c in colunas) + ")" for l in leitura.linhas)
     avisos = "\n".join(f"--   {a}" for a in leitura.avisos) or "--   (nenhum)"
     n_ativos = sum(1 for l in leitura.linhas if l.ativo)
-    return f"""-- >>>>>>>>>> PREENCHA AS LINHAS 4 E 5 E DEPOIS CLIQUE EM "RUN" <<<<<<<<<<
-BEGIN;
-CREATE TEMP TABLE _cfg ON COMMIT DROP AS SELECT
-  '00000000'::text               AS inep,    -- >>> 1) troque 00000000 pelo INEP da escola (8 dígitos)
-  'COLE-AQUI-O-CPF_PEPPER'::text AS pepper;  -- >>> 2) troque pelo CPF_PEPPER do servidor (Render)
-
+    v_inep = _lit(inep or "00000000")
+    v_pepper = _lit(pepper or "COLE-AQUI-O-CPF_PEPPER")
+    pronto = bool(inep and pepper)
+    topo = ("-- >>>>>>>>>> ARQUIVO PRONTO: basta clicar em \"RUN\" <<<<<<<<<<" if pronto else
+            "-- >>>>>>>>>> PREENCHA AS LINHAS 4 E 5 E DEPOIS CLIQUE EM \"RUN\" <<<<<<<<<<")
+    return f"""{topo}
+DO $importacao$
+DECLARE
+  v_inep   text := {v_inep};   -- >>> 1) INEP da escola (8 dígitos)
+  v_pepper text := {v_pepper};   -- >>> 2) CPF_PEPPER do servidor (NÃO é o CNPJ)
+  v_escola integer;
+  v_n integer;
+BEGIN
+  -- pgcrypto (para o HMAC do CPF). No Supabase já vem instalada no schema "extensions".
+  CREATE SCHEMA IF NOT EXISTS extensions;
+  CREATE EXTENSION IF NOT EXISTS pgcrypto WITH SCHEMA extensions;
 -- =====================================================================
 -- Autoriza Escolar — importação de ALUNOS e RESPONSÁVEIS (dados reais — LGPD)
 -- {len(leitura.linhas)} alunos ({n_ativos} ativos). NÃO versione nem compartilhe este arquivo.
 --
--- 1) INEP: a escola já deve existir (escolas.sql). Para consultar:
---      SELECT nome, inep FROM escola ORDER BY nome;
--- 2) CPF_PEPPER: EXATAMENTE o mesmo do servidor (Render → Environment),
---    senão os responsáveis não conseguem entrar. Ele não fica salvo em lugar nenhum.
+-- 1) INEP: a escola já deve existir (escolas.sql).  SELECT nome, inep FROM escola ORDER BY nome;
+-- 2) CPF_PEPPER: a CHAVE SECRETA do servidor (variável CPF_PEPPER no Render). Deve ser
+--    EXATAMENTE a mesma, senão os responsáveis não conseguem entrar.
 --
 -- Pré-requisitos: schema.sql (versão atual) e escolas.sql já executados.
--- Pode ser executado mais de uma vez: atualiza sem duplicar.
+-- Tudo roda como um único comando: ou importa tudo, ou nada. Pode ser executado de novo.
 --
 -- Avisos da leitura do arquivo:
 {avisos}
 -- =====================================================================
 
-CREATE SCHEMA IF NOT EXISTS extensions;
-CREATE EXTENSION IF NOT EXISTS pgcrypto WITH SCHEMA extensions;
+  SELECT id INTO v_escola FROM escola WHERE inep = v_inep;
+  IF v_escola IS NULL THEN
+    RAISE EXCEPTION 'Escola com INEP % não encontrada. Corrija o INEP na LINHA 4 do arquivo.', v_inep;
+  END IF;
+  IF v_pepper = 'COLE-AQUI-O-CPF_PEPPER' OR length(v_pepper) < 16 THEN
+    RAISE EXCEPTION 'Preencha o CPF_PEPPER do servidor na LINHA 5 do arquivo (mínimo 16 caracteres).';
+  END IF;
+  IF v_pepper ~ '^[0-9./ -]+$' THEN
+    RAISE EXCEPTION 'O valor da LINHA 5 parece um CNPJ/CPF. O CPF_PEPPER é a chave secreta do servidor (Render → Environment → CPF_PEPPER).';
+  END IF;
+  IF to_regprocedure('extensions.hmac(text,text,text)') IS NULL THEN
+    RAISE EXCEPTION 'Extensão pgcrypto não encontrada no schema extensions. No Supabase: Database → Extensions → pgcrypto.';
+  END IF;
 
-DO $chk$
-DECLARE c record;
-BEGIN
-  SELECT * INTO c FROM _cfg;
-  IF NOT EXISTS (SELECT 1 FROM escola WHERE inep = c.inep) THEN
-    RAISE EXCEPTION 'Escola com INEP % não encontrada. Preencha o INEP na LINHA 4 do arquivo (topo).', c.inep;
-  END IF;
-  IF c.pepper = 'COLE-AQUI-O-CPF_PEPPER' OR length(c.pepper) < 16 THEN
-    RAISE EXCEPTION 'Preencha o CPF_PEPPER do servidor na LINHA 5 do arquivo (topo).';
-  END IF;
+  DROP TABLE IF EXISTS _imp;
+  CREATE TEMP TABLE _imp (
+    aluno_id text, nome text, nascimento date, cpf_aluno text, ano text, turma text, segmento text,
+    ano_letivo int, status text, ativo boolean, pai text, cpf_pai text, mae text, cpf_mae text,
+    h_aluno text, h_pai text, h_mae text
+  ) ON COMMIT DROP;
+
+  INSERT INTO _imp ({", ".join(colunas)}) VALUES
+    {valores};
+
+  -- Hash do CPF igual ao do sistema: HMAC-SHA256(cpf, CPF_PEPPER) em hexadecimal
+  UPDATE _imp SET
+    h_aluno = CASE WHEN cpf_aluno IS NOT NULL THEN encode(extensions.hmac(cpf_aluno, v_pepper, 'sha256'), 'hex') END,
+    h_pai   = CASE WHEN cpf_pai   IS NOT NULL THEN encode(extensions.hmac(cpf_pai,   v_pepper, 'sha256'), 'hex') END,
+    h_mae   = CASE WHEN cpf_mae   IS NOT NULL THEN encode(extensions.hmac(cpf_mae,   v_pepper, 'sha256'), 'hex') END;
+
+  -- 1) Turmas
+  INSERT INTO turma (nome, ano, escola_id, segmento)
+  SELECT DISTINCT i.turma, i.ano, v_escola, i.segmento FROM _imp i
+  WHERE NOT EXISTS (SELECT 1 FROM turma t WHERE t.escola_id = v_escola AND t.ano = i.ano AND t.nome = i.turma);
+  UPDATE turma t SET segmento = i.segmento
+  FROM (SELECT DISTINCT ano, turma, segmento FROM _imp) i
+  WHERE t.escola_id = v_escola AND t.ano = i.ano AND t.nome = i.turma AND t.segmento IS NULL;
+
+  -- 2) Alunos (matrícula = aluno_id da origem)
+  INSERT INTO aluno (public_id, matricula, id_externo, nome, data_nascimento, escola_id, turma_id, ativo,
+                     cpf_hash, cpf_final, ano_letivo, situacao_matricula)
+  SELECT gen_random_uuid()::text, i.aluno_id, i.aluno_id, i.nome, i.nascimento, v_escola, t.id, i.ativo,
+         i.h_aluno, right(i.cpf_aluno, 2), i.ano_letivo, i.status
+  FROM _imp i JOIN turma t ON t.escola_id = v_escola AND t.ano = i.ano AND t.nome = i.turma
+  ON CONFLICT (matricula) DO UPDATE SET
+    id_externo = EXCLUDED.id_externo, nome = EXCLUDED.nome, data_nascimento = EXCLUDED.data_nascimento,
+    escola_id = EXCLUDED.escola_id, turma_id = EXCLUDED.turma_id, ativo = EXCLUDED.ativo,
+    cpf_hash = EXCLUDED.cpf_hash, cpf_final = EXCLUDED.cpf_final, ano_letivo = EXCLUDED.ano_letivo,
+    situacao_matricula = EXCLUDED.situacao_matricula;
+
+  -- 3) Responsáveis COM CPF (únicos pelo CPF; irmãos compartilham o cadastro)
+  INSERT INTO responsavel (public_id, nome, cpf_hash, cpf_final, ativo, criado_em)
+  SELECT DISTINCT ON (x.h) gen_random_uuid()::text, x.nome, x.h, x.fim, true, now() AT TIME ZONE 'utc'
+  FROM (SELECT i.mae AS nome, i.h_mae AS h, right(i.cpf_mae, 2) AS fim FROM _imp i WHERE i.h_mae IS NOT NULL
+        UNION ALL
+        SELECT i.pai, i.h_pai, right(i.cpf_pai, 2) FROM _imp i WHERE i.h_pai IS NOT NULL) x
+  ORDER BY x.h, x.nome
+  ON CONFLICT (cpf_hash) DO NOTHING;
+
+  -- 4) Responsáveis SEM CPF (um cadastro por aluno/papel; sem acesso até informar o CPF)
+  INSERT INTO responsavel (public_id, nome, id_externo, ativo, criado_em)
+  SELECT gen_random_uuid()::text, x.nome, x.ext, true, now() AT TIME ZONE 'utc'
+  FROM (SELECT i.mae AS nome, i.aluno_id || '-MAE' AS ext FROM _imp i WHERE i.h_mae IS NULL AND i.mae IS NOT NULL
+        UNION ALL
+        SELECT i.pai, i.aluno_id || '-PAI' FROM _imp i WHERE i.h_pai IS NULL AND i.pai IS NOT NULL) x
+  ON CONFLICT (id_externo) DO UPDATE SET nome = EXCLUDED.nome;
+
+  -- 5) Vínculos responsável ↔ aluno (Mãe / Pai), todos podem autorizar
+  INSERT INTO responsavel_aluno (responsavel_id, aluno_id, tipo_vinculo, responsavel_legal, ativo)
+  SELECT r.id, a.id, v.tipo, true, true
+  FROM (SELECT i.aluno_id, 'Mãe' AS tipo, i.h_mae AS h, i.aluno_id || '-MAE' AS ext FROM _imp i WHERE i.mae IS NOT NULL
+        UNION ALL
+        SELECT i.aluno_id, 'Pai', i.h_pai, i.aluno_id || '-PAI' FROM _imp i WHERE i.pai IS NOT NULL) v
+  JOIN aluno a ON a.matricula = v.aluno_id
+  JOIN responsavel r ON (v.h IS NOT NULL AND r.cpf_hash = v.h) OR (v.h IS NULL AND r.id_externo = v.ext)
+  ON CONFLICT (responsavel_id, aluno_id) DO UPDATE SET tipo_vinculo = EXCLUDED.tipo_vinculo, ativo = true;
+
+  -- 6) Alunos ativos entram nos passeios que já incluem a turma deles
+  INSERT INTO passeio_aluno (passeio_id, aluno_id)
+  SELECT pt.passeio_id, a.id FROM passeio_turma pt
+  JOIN aluno a ON a.turma_id = pt.turma_id AND a.ativo
+  JOIN _imp i ON i.aluno_id = a.matricula
+  ON CONFLICT (passeio_id, aluno_id) DO NOTHING;
+
+  SELECT count(*) INTO v_n FROM _imp;
+  RAISE NOTICE 'Importação concluída: % alunos processados.', v_n;
 END
-$chk$;
-
-CREATE TEMP TABLE _imp (
-  aluno_id text, nome text, nascimento date, cpf_aluno text, ano text, turma text, segmento text,
-  ano_letivo int, status text, ativo boolean, pai text, cpf_pai text, mae text, cpf_mae text
-) ON COMMIT DROP;
-
-INSERT INTO _imp ({", ".join(colunas)}) VALUES
-  {valores};
-
--- Hash do CPF igual ao do sistema: HMAC-SHA256(cpf, CPF_PEPPER) em hexadecimal
-CREATE TEMP TABLE _h ON COMMIT DROP AS
-SELECT i.*,
-       e.id AS escola_id,
-       CASE WHEN i.cpf_aluno IS NOT NULL THEN encode(extensions.hmac(i.cpf_aluno, c.pepper, 'sha256'), 'hex') END AS h_aluno,
-       CASE WHEN i.cpf_pai   IS NOT NULL THEN encode(extensions.hmac(i.cpf_pai,   c.pepper, 'sha256'), 'hex') END AS h_pai,
-       CASE WHEN i.cpf_mae   IS NOT NULL THEN encode(extensions.hmac(i.cpf_mae,   c.pepper, 'sha256'), 'hex') END AS h_mae
-FROM _imp i CROSS JOIN _cfg c JOIN escola e ON e.inep = c.inep;
-
--- 1) Turmas
-INSERT INTO turma (nome, ano, escola_id, segmento)
-SELECT DISTINCT h.turma, h.ano, h.escola_id, h.segmento FROM _h h
-WHERE NOT EXISTS (SELECT 1 FROM turma t WHERE t.escola_id = h.escola_id AND t.ano = h.ano AND t.nome = h.turma);
-UPDATE turma t SET segmento = h.segmento
-FROM (SELECT DISTINCT escola_id, ano, turma, segmento FROM _h) h
-WHERE t.escola_id = h.escola_id AND t.ano = h.ano AND t.nome = h.turma AND t.segmento IS NULL;
-
--- 2) Alunos (matrícula = aluno_id da origem)
-INSERT INTO aluno (public_id, matricula, id_externo, nome, data_nascimento, escola_id, turma_id, ativo,
-                   cpf_hash, cpf_final, ano_letivo, situacao_matricula)
-SELECT gen_random_uuid()::text, h.aluno_id, h.aluno_id, h.nome, h.nascimento, h.escola_id, t.id, h.ativo,
-       h.h_aluno, right(h.cpf_aluno, 2), h.ano_letivo, h.status
-FROM _h h JOIN turma t ON t.escola_id = h.escola_id AND t.ano = h.ano AND t.nome = h.turma
-ON CONFLICT (matricula) DO UPDATE SET
-  id_externo = EXCLUDED.id_externo, nome = EXCLUDED.nome, data_nascimento = EXCLUDED.data_nascimento,
-  escola_id = EXCLUDED.escola_id, turma_id = EXCLUDED.turma_id, ativo = EXCLUDED.ativo,
-  cpf_hash = EXCLUDED.cpf_hash, cpf_final = EXCLUDED.cpf_final, ano_letivo = EXCLUDED.ano_letivo,
-  situacao_matricula = EXCLUDED.situacao_matricula;
-
--- 3) Responsáveis COM CPF (únicos pelo CPF; irmãos compartilham o cadastro)
-INSERT INTO responsavel (public_id, nome, cpf_hash, cpf_final, ativo, criado_em)
-SELECT DISTINCT ON (x.h) gen_random_uuid()::text, x.nome, x.h, x.fim, true, now() AT TIME ZONE 'utc'
-FROM (SELECT mae AS nome, h_mae AS h, right(cpf_mae, 2) AS fim FROM _h WHERE h_mae IS NOT NULL
-      UNION ALL
-      SELECT pai, h_pai, right(cpf_pai, 2) FROM _h WHERE h_pai IS NOT NULL) x
-ORDER BY x.h, x.nome
-ON CONFLICT (cpf_hash) DO NOTHING;
-
--- 4) Responsáveis SEM CPF (um cadastro por aluno/papel; sem acesso até informar o CPF)
-INSERT INTO responsavel (public_id, nome, id_externo, ativo, criado_em)
-SELECT gen_random_uuid()::text, x.nome, x.ext, true, now() AT TIME ZONE 'utc'
-FROM (SELECT mae AS nome, aluno_id || '-MAE' AS ext FROM _h WHERE h_mae IS NULL AND mae IS NOT NULL
-      UNION ALL
-      SELECT pai, aluno_id || '-PAI' FROM _h WHERE h_pai IS NULL AND pai IS NOT NULL) x
-ON CONFLICT (id_externo) DO UPDATE SET nome = EXCLUDED.nome;
-
--- 5) Vínculos responsável ↔ aluno (Mãe / Pai), todos podem autorizar
-INSERT INTO responsavel_aluno (responsavel_id, aluno_id, tipo_vinculo, responsavel_legal, ativo)
-SELECT r.id, a.id, v.tipo, true, true
-FROM (SELECT aluno_id, 'Mãe' AS tipo, h_mae AS h, aluno_id || '-MAE' AS ext FROM _h WHERE mae IS NOT NULL
-      UNION ALL
-      SELECT aluno_id, 'Pai', h_pai, aluno_id || '-PAI' FROM _h WHERE pai IS NOT NULL) v
-JOIN aluno a ON a.matricula = v.aluno_id
-JOIN responsavel r ON (v.h IS NOT NULL AND r.cpf_hash = v.h) OR (v.h IS NULL AND r.id_externo = v.ext)
-ON CONFLICT (responsavel_id, aluno_id) DO UPDATE SET tipo_vinculo = EXCLUDED.tipo_vinculo, ativo = true;
-
--- 6) Alunos ativos entram nos passeios que já incluem a turma deles
-INSERT INTO passeio_aluno (passeio_id, aluno_id)
-SELECT pt.passeio_id, a.id FROM passeio_turma pt
-JOIN aluno a ON a.turma_id = pt.turma_id AND a.ativo
-JOIN _h h ON h.aluno_id = a.matricula
-ON CONFLICT (passeio_id, aluno_id) DO NOTHING;
-
-COMMIT;
+$importacao$;
 
 -- Conferência
 SELECT (SELECT count(*) FROM aluno WHERE id_externo IS NOT NULL)                AS alunos_importados,

@@ -17,3 +17,7 @@ docs/supabase/escolas.sql
 csv/
 docs/supabase/alunos*.sql
 *.csv
+
+# Segredos de produção (ex.: CPF_PEPPER do Render) — nunca versionar
+.env.*
+!.env.example

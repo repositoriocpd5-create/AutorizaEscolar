@@ -24,8 +24,10 @@ services:
       # Segredos gerados pelo Render (nunca versionados)
       - key: SECRET_KEY
         generateValue: true
+      # Informado manualmente: deve ser o MESMO usado nas importações (alunos.sql)
+      # e nunca mudar depois que houver responsáveis cadastrados.
       - key: CPF_PEPPER
-        generateValue: true
+        sync: false
       # HTTPS atrás do proxy do Render
       - key: PROXY_FIX
         value: "true"
