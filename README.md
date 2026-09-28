@@ -24,8 +24,8 @@ a API REST pública não acessa nenhum dado.
 ### Serviço web
 
 O arquivo `render.yaml` cria o serviço web (gunicorn), com
-`SECRET_KEY`, `CPF_PEPPER` e as senhas de demonstração **geradas pelo Render**
-(veja em *Dashboard → autoriza-escolar → Environment*). Cada `push` na branch `main`
+`SECRET_KEY` e `CPF_PEPPER` **gerados pelo Render**. Ao aplicar, informe `DATABASE_URL`,
+`SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEY` e `ADMIN_EMAILS`. Cada `push` na branch `main`
 publica uma nova versão. Imagens enviadas ficam no banco, pois o disco do Render é
 apagado a cada nova versão; os PDFs são regenerados de forma idêntica a partir do banco.
 
@@ -52,7 +52,7 @@ Acesse <http://localhost:5000>. Linux/macOS: use `.venv/bin/` no lugar de `.\.ve
 |---|---|
 | Responsável José da Silva (Pedro e Maria) | CPF `000.000.000-00` |
 | Responsável Ana Paula Souza (3 filhos, 2 escolas) | CPF `529.982.247-25` |
-| Administrador | <http://localhost:5000/admin> — usuário/senha em `DEMO_ADMIN_LOGIN` / `DEMO_ADMIN_SENHA` do `.env` |
+| Administrador | <http://localhost:5000/admin> — e-mail e senha do **Supabase Authentication** (e-mail autorizado em `ADMIN_EMAILS` ou em *Usuários*) |
 
 O CPF `000.000.000-00` é inválido pelo dígito verificador; ele só é aceito com
 `DEMO_MODE=true` e se estiver em `DEMO_CPFS`. O seed cria ~150 alunos fictícios
@@ -198,7 +198,14 @@ ou Gov.br, crie uma subclasse de `SegundoFator` em `app/services/auth_service.py
 | **Painel** (rede e escolas) | filtros por passeio, escola, ano, turma, situação e pesquisa (sem acento); **revogação individual ou em lote** (selecionados, página ou todo o filtro) com motivo único |
 
 Usuários de unidade escolar só enxergam e revogam alunos da própria escola (validado no servidor).
-Demonstração: `escola.exemplo` / senha em `DEMO_ESCOLA_SENHA`.
+
+### Login do painel (Supabase Authentication)
+
+Com `SUPABASE_URL` e `SUPABASE_PUBLISHABLE_KEY` definidos, o login do painel é feito com
+e-mail e senha conferidos pelo Supabase (`/auth/v1/token`). O sistema **não guarda senhas**:
+basta o e-mail estar autorizado em *Usuários* (rede ou escola) ou em `ADMIN_EMAILS`
+(vira administrador da rede no primeiro acesso). Senhas são criadas/alteradas em
+*Supabase → Authentication → Users*. Sem essas variáveis (ex.: testes), vale o login local.
 
 Imagens enviadas são validadas com Pillow e regravadas em PNG com nome aleatório em `instance/uploads`.
 

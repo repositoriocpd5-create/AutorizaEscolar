@@ -1,4 +1,5 @@
 """Painel administrativo (acesso separado, com usuário e senha)."""
+import re
 from datetime import datetime
 
 from flask import (Blueprint, Response, abort, current_app, flash, redirect, render_template, request,
@@ -10,7 +11,7 @@ from ..formatacao import agora_local
 from ..models import (Aluno, AdminUsuario, AuditLog, Autorizacao, Documento, Escola, Passeio,
                       PasseioAluno, Situacao, TEXTO_DECLARACAO_PADRAO, TEXTO_TERMO_PADRAO, Turma)
 from ..security import admin_atual, admin_obrigatorio, client_ip, excedeu_limite, registrar_tentativa
-from ..services import config_service, midia_service
+from ..services import admin_auth_service, config_service, midia_service
 from ..services import relatorio_service as rel
 from ..services.autorizacao_service import ErroNegocio, cancelar_pela_escola, revogar_varias
 from ..services.passeio_service import estado_passeio, sincronizar_participantes
@@ -27,14 +28,15 @@ POR_PAGINA = 25
 def login():
     erro = None
     if request.method == "POST":
-        login_ = request.form.get("login", "").strip()[:60]
+        login_ = request.form.get("login", "").strip()[:160]
         senha = request.form.get("senha", "")
-        chave_ip, chave_login = f"adm-ip:{client_ip()}", f"adm:{login_.lower()}"
+        chave_ip, chave_login = f"adm-ip:{client_ip()}", f"adm:{login_.lower()[:90]}"
         if excedeu_limite(chave_ip, 10) or excedeu_limite(chave_login, 5):
             erro = "Muitas tentativas. Aguarde alguns minutos."
         else:
-            adm = AdminUsuario.query.filter_by(login=login_, ativo=True).first()
-            if adm and adm.conferir_senha(senha):
+            resultado = admin_auth_service.autenticar(login_, senha)
+            adm = resultado.admin
+            if adm is not None:
                 registrar_tentativa(chave_ip, True)
                 session.clear()
                 session.permanent = True
@@ -45,11 +47,12 @@ def login():
                 if not destino.startswith("/admin") or destino.startswith("//"):
                     destino = url_for("admin.dashboard")
                 return redirect(destino)
-            registrar_tentativa(chave_ip, False)
-            registrar_tentativa(chave_login, False)
+            if resultado.falha_credencial:
+                registrar_tentativa(chave_ip, False)
+                registrar_tentativa(chave_login, False)
             audit.registrar(audit.Acao.ADMIN_LOGIN_FALHA, "PUBLICO")
-            erro = "Usuário ou senha incorretos."
-    return render_template("admin/login.html", erro=erro)
+            erro = resultado.erro
+    return render_template("admin/login.html", erro=erro, modo_supabase=admin_auth_service.modo_supabase())
 
 
 @bp.post("/sair")
@@ -431,22 +434,27 @@ def usuarios():
     erro = None
     if request.method == "POST":
         f = request.form
-        login_ = f.get("login", "").strip().lower()[:60]
+        supabase = admin_auth_service.modo_supabase()
+        login_ = f.get("login", "").strip().lower()[:160 if supabase else 60]
         nome = f.get("nome", "").strip()[:120]
         senha = f.get("senha", "")
         escola_id = f.get("escola_id", "")
         escola = db.session.get(Escola, int(escola_id)) if escola_id.isdigit() else None
         if not login_ or not nome:
-            erro = "Informe nome e usuário."
-        elif len(senha) < 10:
+            erro = "Informe nome e " + ("e-mail." if supabase else "usuário.")
+        elif supabase and not re.match(r"^[^@\s]+@[^@\s]+\.[^@\s]+$", login_):
+            erro = "Informe um e-mail válido (o mesmo cadastrado no Supabase Authentication)."
+        elif not supabase and len(senha) < 10:
             erro = "A senha deve ter pelo menos 10 caracteres."
-        elif AdminUsuario.query.filter_by(login=login_).first():
-            erro = "Já existe um usuário com este login."
+        elif AdminUsuario.query.filter((AdminUsuario.login == login_[:60]) | (AdminUsuario.email == login_)).first():
+            erro = "Já existe um usuário com este login/e-mail."
         elif escola_id and escola is None:
             erro = "Unidade escolar inválida."
         else:
-            u = AdminUsuario(login=login_, nome=nome, escola_id=escola.id if escola else None)
-            u.definir_senha(senha)
+            u = AdminUsuario(login=login_[:60], nome=nome, escola_id=escola.id if escola else None,
+                             email=login_ if supabase else None)
+            if not supabase:
+                u.definir_senha(senha)
             db.session.add(u)
             db.session.flush()
             audit.registrar(audit.Acao.ADMIN_ACAO, "ADMIN", admin_atual().id, alvo=f"admin:{u.id}",
@@ -456,7 +464,9 @@ def usuarios():
             flash(f"Usuário {login_} criado.", "sucesso")
             return redirect(url_for("admin.usuarios"))
     return render_template("admin/usuarios.html", lista=AdminUsuario.query.order_by(AdminUsuario.nome).all(),
-                           escolas=Escola.query.order_by(Escola.nome).all(), erro=erro, form=request.form)
+                           escolas=Escola.query.order_by(Escola.nome).all(), erro=erro, form=request.form,
+                           modo_supabase=admin_auth_service.modo_supabase(),
+                           supabase_url=current_app.config.get("SUPABASE_URL", ""))
 
 
 @bp.post("/usuarios/<int:uid>/ativo")
@@ -480,6 +490,8 @@ def usuario_ativo(uid):
 @admin_obrigatorio
 def usuario_senha(uid):
     _somente_rede()
+    if admin_auth_service.modo_supabase():
+        abort(404)  # senhas são gerenciadas no Supabase Authentication
     u = db.session.get(AdminUsuario, uid) or abort(404)
     senha = request.form.get("senha", "")
     if len(senha) < 10:

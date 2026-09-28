@@ -297,7 +297,10 @@ class AdminUsuario(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     nome = db.Column(db.String(120), nullable=False)
     login = db.Column(db.String(60), unique=True, nullable=False)
-    senha_hash = db.Column(db.String(256), nullable=False)
+    # E-mail do Supabase Authentication (modo Supabase). Senha fica só no Supabase.
+    email = db.Column(db.String(160), unique=True)
+    # Somente no modo local (desenvolvimento/testes).
+    senha_hash = db.Column(db.String(256))
     # None = acesso a toda a rede; preenchido = restrito à escola.
     escola_id = db.Column(db.Integer, db.ForeignKey("escola.id"))
     ativo = db.Column(db.Boolean, nullable=False, default=True)
@@ -308,7 +311,7 @@ class AdminUsuario(db.Model):
         self.senha_hash = generate_password_hash(senha)
 
     def conferir_senha(self, senha: str) -> bool:
-        return check_password_hash(self.senha_hash, senha)
+        return bool(self.senha_hash) and check_password_hash(self.senha_hash, senha)
 
 
 class AuditLog(db.Model):

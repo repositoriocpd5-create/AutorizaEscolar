@@ -351,5 +351,15 @@ ALTER TABLE public."midia" ENABLE ROW LEVEL SECURITY;
 
 UPDATE alembic_version SET version_num='1b0e7f733da3' WHERE alembic_version.version_num = '9bfba8258bec';
 
+-- Running upgrade 1b0e7f733da3 -> efba62287685
+
+ALTER TABLE admin_usuario ADD COLUMN email VARCHAR(160);
+
+ALTER TABLE admin_usuario ALTER COLUMN senha_hash DROP NOT NULL;
+
+ALTER TABLE admin_usuario ADD CONSTRAINT uq_admin_usuario_email UNIQUE (email);
+
+UPDATE alembic_version SET version_num='efba62287685' WHERE alembic_version.version_num = '1b0e7f733da3';
+
 COMMIT;
 

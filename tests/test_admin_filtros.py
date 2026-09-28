@@ -10,7 +10,7 @@ from app.models import (Aluno, Autorizacao, Escola, Passeio, PasseioAluno, Situa
 from tests.test_fluxo import app, client, csrf, login, meus  # noqa: F401  (fixtures)
 
 
-def entrar_admin(client, usuario="admin", senha="demo-admin-2026"):
+def entrar_admin(client, usuario="admin", senha="senha-teste-admin"):
     token = csrf(client, "/admin/login")
     r = client.post("/admin/login", data={"login": usuario, "senha": senha, "_csrf": token})
     assert r.status_code == 302, "login admin falhou"
@@ -121,7 +121,7 @@ def test_opcoes_de_filtro_limitadas_ao_passeio_e_paginacao(client):
 
 
 def test_escopo_do_usuario_de_escola(client):
-    entrar_admin(client, "escola.exemplo", "demo-escola-2026")
+    entrar_admin(client, "escola.exemplo", "senha-teste-escola")
     e1 = Escola.query.filter_by(codigo="EM-001").one()
     html = get(client)
     assert total(html) == Aluno.query.filter_by(escola_id=e1.id).count()
@@ -147,7 +147,7 @@ def _autorizar_pedro(client):
 
 def test_escola_revoga_autorizacao(client):
     _autorizar_pedro(client)
-    token = entrar_admin(client, "escola.exemplo", "demo-escola-2026")
+    token = entrar_admin(client, "escola.exemplo", "senha-teste-escola")
     aut = Autorizacao.query.join(Aluno).filter(Aluno.nome == "Pedro da Silva").one()
     r = client.post(f"/admin/autorizacoes/{aut.public_id}/cancelar",
                     data={"_csrf": token, "motivo": "Pedido presencial do responsável"})
@@ -333,7 +333,7 @@ def test_revogacao_em_lote_respeita_escopo_da_escola(client):
     e2 = Escola.query.filter_by(codigo="EM-002").one()
     alheia = (Autorizacao.query.join(Aluno).filter(Autorizacao.passeio_id == p.id, Aluno.escola_id == e2.id,
                                                    Autorizacao.situacao == Situacao.AUTORIZADO).first())
-    token = entrar_admin(client, "escola.exemplo", "demo-escola-2026")
+    token = entrar_admin(client, "escola.exemplo", "senha-teste-escola")
     client.post("/admin/autorizacoes/revogar", data={
         "_csrf": token, "passeio": p.public_id, "aut": [alheia.public_id], "motivo": "Tentativa indevida"})
     db.session.refresh(alheia)
@@ -347,3 +347,87 @@ def test_revogacao_em_lote_respeita_escopo_da_escola(client):
     e1 = Escola.query.filter_by(codigo="EM-001").one()
     assert Autorizacao.query.join(Aluno).filter(Autorizacao.passeio_id == p.id, Aluno.escola_id == e1.id,
                                                 Autorizacao.situacao == Situacao.AUTORIZADO).count() == 0
+
+
+# ---------------------------------------------------------------------------
+# Login do painel via Supabase Authentication (chamada HTTP simulada)
+# ---------------------------------------------------------------------------
+def _ativar_supabase(app, monkeypatch, senha_correta="senha-supabase-teste"):
+    import io as _io
+    import json as _json
+    import urllib.error
+    from app.services import admin_auth_service
+    app.config.update(SUPABASE_URL="https://exemplo.supabase.co", SUPABASE_PUBLISHABLE_KEY="sb_publishable_teste",
+                      ADMIN_EMAILS={"chefe@rede.gov.br"})
+    chamadas = []
+
+    def falso_urlopen(req, timeout=10):
+        corpo = _json.loads(req.data.decode())
+        chamadas.append((req.full_url, req.headers.get("Apikey"), corpo["email"]))
+        if corpo["password"] != senha_correta:
+            raise urllib.error.HTTPError(req.full_url, 400, "invalid", {}, _io.BytesIO(b"{}"))
+
+        class R:
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *a):
+                return False
+
+            def read(self):
+                return _json.dumps({"access_token": "x", "user": {"email": corpo["email"]}}).encode()
+        return R()
+    monkeypatch.setattr(admin_auth_service.urllib.request, "urlopen", falso_urlopen)
+    return chamadas
+
+
+def test_login_admin_supabase(app, client, monkeypatch):
+    from app.models import AdminUsuario
+    chamadas = _ativar_supabase(app, monkeypatch)
+    token = csrf(client, "/admin/login")
+    assert "E-mail institucional" in client.get("/admin/login").get_data(as_text=True)
+    # Senha errada
+    r = client.post("/admin/login", data={"_csrf": token, "login": "chefe@rede.gov.br", "senha": "errada"})
+    assert r.status_code == 200 and "E-mail ou senha incorretos" in r.get_data(as_text=True)
+    # E-mail em ADMIN_EMAILS entra e vira admin da rede, sem senha local
+    r = client.post("/admin/login", data={"_csrf": token, "login": "Chefe@Rede.gov.br",
+                                           "senha": "senha-supabase-teste"})
+    assert r.status_code == 302
+    adm = AdminUsuario.query.filter_by(email="chefe@rede.gov.br").one()
+    assert adm.escola_id is None and adm.senha_hash is None
+    assert chamadas[-1][0].endswith("/auth/v1/token?grant_type=password")
+    assert chamadas[-1][1] == "sb_publishable_teste"
+    assert client.get("/admin/usuarios").status_code == 200
+
+
+def test_login_supabase_sem_permissao_no_painel(app, client, monkeypatch):
+    _ativar_supabase(app, monkeypatch)
+    token = csrf(client, "/admin/login")
+    r = client.post("/admin/login", data={"_csrf": token, "login": "qualquer@gmail.com",
+                                           "senha": "senha-supabase-teste"})
+    assert "não tem permissão" in r.get_data(as_text=True)
+    assert client.get("/admin/").status_code == 302
+
+
+def test_usuario_de_escola_por_email_no_modo_supabase(app, client, monkeypatch):
+    from app.models import AdminUsuario
+    _ativar_supabase(app, monkeypatch)
+    token = csrf(client, "/admin/login")
+    client.post("/admin/login", data={"_csrf": token, "login": "chefe@rede.gov.br", "senha": "senha-supabase-teste"})
+    token = csrf(client, "/admin/usuarios")
+    e1 = Escola.query.filter_by(codigo="EM-001").one()
+    r = client.post("/admin/usuarios", data={"_csrf": token, "nome": "Direção EM Exemplo",
+                                             "login": "direcao@escola.gov.br", "escola_id": str(e1.id)})
+    assert r.status_code == 302
+    u = AdminUsuario.query.filter_by(email="direcao@escola.gov.br").one()
+    assert u.escola_id == e1.id and u.senha_hash is None
+    client.post("/admin/sair", data={"_csrf": token})
+    token = csrf(client, "/admin/login")
+    client.post("/admin/login", data={"_csrf": token, "login": "direcao@escola.gov.br",
+                                       "senha": "senha-supabase-teste"})
+    assert total(get(client)) == Aluno.query.filter_by(escola_id=e1.id).count()
+
+
+def test_tela_de_login_nao_exibe_credenciais(client):
+    html = client.get("/admin/login").get_data(as_text=True)
+    assert "DEMO_ADMIN" not in html and ".env.example" not in html

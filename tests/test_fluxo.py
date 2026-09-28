@@ -183,7 +183,7 @@ def test_paginas_renderizam(client):
 
 def test_admin(client):
     token = csrf(client, "/admin/login")
-    r = client.post("/admin/login", data={"login": "admin", "senha": "demo-admin-2026", "_csrf": token})
+    r = client.post("/admin/login", data={"login": "admin", "senha": "senha-teste-admin", "_csrf": token})
     assert r.status_code == 302
     html = client.get("/admin/").get_data(as_text=True)
     assert "Total de alunos" in html and "150" in html

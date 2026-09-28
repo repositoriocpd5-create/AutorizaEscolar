@@ -6,25 +6,31 @@
 <h1 class="page-title">Usuários do painel</h1>
 <p class="muted">Usuários da <strong>rede</strong> veem todas as escolas e gerenciam passeios e configurações.
   Usuários de uma <strong>unidade escolar</strong> veem apenas os próprios alunos e podem revogar autorizações deles.</p>
+{% if modo_supabase %}
+<p class="aviso">{{ ui.icon('info') }}<span>As senhas são gerenciadas no <strong>Supabase → Authentication → Users</strong>.
+  Para dar acesso, crie o usuário lá (ou convide por e-mail) e cadastre o mesmo e-mail aqui, definindo se ele é da rede ou de uma escola.</span></p>
+{% endif %}
 
 <div class="table-wrap">
 <table class="data-table">
-  <thead><tr><th>Nome</th><th>Usuário</th><th>Acesso</th><th>Situação</th><th>Ações</th></tr></thead>
+  <thead><tr><th>Nome</th><th>{{ 'E-mail' if modo_supabase else 'Usuário' }}</th><th>Acesso</th><th>Situação</th><th>Ações</th></tr></thead>
   <tbody>
   {% for u in lista %}
   <tr>
     <td data-label="Nome"><strong>{{ u.nome }}</strong>{% if u.id == admin.id %} <span class="muted small">(você)</span>{% endif %}</td>
-    <td data-label="Usuário"><code>{{ u.login }}</code></td>
+    <td data-label="{{ 'E-mail' if modo_supabase else 'Usuário' }}"><code>{{ u.email or u.login }}</code></td>
     <td data-label="Acesso">{{ u.escola.nome if u.escola else 'Toda a rede' }}</td>
     <td data-label="Situação">{% if u.ativo %}<span class="badge badge--ok">{{ ui.icon('check') }}Ativo</span>{% else %}<span class="badge badge--closed">Inativo</span>{% endif %}</td>
     <td data-label="Ações">
       <div class="row-actions">
+        {% if not modo_supabase %}
         <form method="post" action="{{ url_for('admin.usuario_senha', uid=u.id) }}" class="inline-form inline-form--senha">
           <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
           <label class="sr-only" for="senha-{{ u.id }}">Nova senha para {{ u.login }}</label>
           <input id="senha-{{ u.id }}" type="password" name="senha" class="input input--sm" placeholder="Nova senha" minlength="10" autocomplete="new-password" required>
           <button class="btn btn--outline btn--xs">Redefinir</button>
         </form>
+        {% endif %}
         {% if u.id != admin.id %}
         <form method="post" action="{{ url_for('admin.usuario_ativo', uid=u.id) }}" class="inline-form">
           <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
@@ -45,13 +51,19 @@
   <form method="post" class="form-grid span-2">
     <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
     <label>Nome<input name="nome" class="input" required maxlength="120" value="{{ form.get('nome', '') }}"></label>
+    {% if modo_supabase %}
+    <label>E-mail (o mesmo do Supabase Authentication)<input name="login" type="email" class="input" required maxlength="160" autocomplete="off" value="{{ form.get('login', '') }}"></label>
+    {% else %}
     <label>Usuário (login)<input name="login" class="input" required maxlength="60" autocomplete="off" value="{{ form.get('login', '') }}"></label>
+    {% endif %}
     <label>Acesso
       <select name="escola_id" class="input">
         <option value="">Toda a rede</option>
         {% for e in escolas %}<option value="{{ e.id }}" {% if form.get('escola_id') == e.id|string %}selected{% endif %}>{{ e.nome }}</option>{% endfor %}
       </select></label>
+    {% if not modo_supabase %}
     <label>Senha inicial (mín. 10 caracteres)<input name="senha" type="password" class="input" required minlength="10" autocomplete="new-password"></label>
+    {% endif %}
     <div class="span-2 form-actions"><button class="btn btn--primary">{{ ui.icon('plus') }}Criar usuário</button></div>
   </form>
 </section>

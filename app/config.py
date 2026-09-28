@@ -53,6 +53,18 @@ class Config:
     DEMO_MODE = _bool("DEMO_MODE", False)
     DEMO_CPFS = {c.strip() for c in os.environ.get("DEMO_CPFS", "00000000000").split(",") if c.strip()}
 
+    # --- Painel administrativo: Supabase Authentication ------------------
+    # Com URL e chave publicável definidas, o login do painel é conferido pelo
+    # Supabase (e-mail/senha). Aceita também os nomes NEXT_PUBLIC_* do Supabase.
+    SUPABASE_URL = (os.environ.get("SUPABASE_URL") or os.environ.get("NEXT_PUBLIC_SUPABASE_URL", "")).rstrip("/")
+    SUPABASE_PUBLISHABLE_KEY = (os.environ.get("SUPABASE_PUBLISHABLE_KEY")
+                                or os.environ.get("NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY", ""))
+    # E-mails que viram administradores da REDE no primeiro login.
+    ADMIN_EMAILS = {e.strip().lower() for e in os.environ.get("ADMIN_EMAILS", "").split(",") if e.strip()}
+    # Usuários de demonstração com senha local: só são criados se estas variáveis existirem.
+    DEMO_ADMIN_SENHA = os.environ.get("DEMO_ADMIN_SENHA") or None
+    DEMO_ESCOLA_SENHA = os.environ.get("DEMO_ESCOLA_SENHA") or None
+
     # --- Autenticação do responsável -------------------------------------
     # "nenhum"          -> somente CPF (apenas protótipo/demonstração)
     # "data_nascimento" -> CPF + data de nascimento do responsável
@@ -84,6 +96,11 @@ class Config:
 
 class TestConfig(Config):
     TESTING = True
+    SUPABASE_URL = ""
+    SUPABASE_PUBLISHABLE_KEY = ""
+    ADMIN_EMAILS = set()
+    DEMO_ADMIN_SENHA = "senha-teste-admin"
+    DEMO_ESCOLA_SENHA = "senha-teste-escola"
     SQLALCHEMY_DATABASE_URI = "sqlite://"
     DEMO_MODE = True
     SECRET_KEY = "teste"

@@ -9,12 +9,19 @@
   {% if erro %}<div class="alert alert--error" role="alert">{{ erro }}</div>{% endif %}
   <form method="post" class="stack">
     <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+    {% if modo_supabase %}
+    <label for="login">E-mail institucional</label>
+    <input id="login" name="login" type="email" class="input input--lg" autocomplete="username" inputmode="email" required>
+    {% else %}
     <label for="login">Usuário</label>
     <input id="login" name="login" class="input input--lg" autocomplete="username" required>
+    {% endif %}
     <label for="senha">Senha</label>
     <input id="senha" name="senha" type="password" class="input input--lg" autocomplete="current-password" required>
     <button class="btn btn--primary btn--lg btn--block">Entrar</button>
   </form>
-  {% if demo_mode %}<p class="demo-hint demo-hint--light">Demonstração: credenciais definidas em <code>.env.example</code> (DEMO_ADMIN_LOGIN / DEMO_ADMIN_SENHA).</p>{% endif %}
+  {% if modo_supabase %}
+  <p class="secure-note">{{ ui.icon('lock') }}Acesso validado pelo Supabase Authentication.</p>
+  {% endif %}
 </section>
 {% endblock %}

@@ -159,13 +159,17 @@ def popular(seed: int = 2026) -> None:
         db.session.add(AutorizacaoHistorico(autorizacao_id=aut.id, situacao_nova=situacao, data_hora=quando,
                                             responsavel_id=resp.id, motivo="Dado fictício de demonstração"))
 
-    # --- Administrador de demonstração ------------------------------------
-    adm = AdminUsuario(nome="Administrador (demo)", login=os.environ.get("DEMO_ADMIN_LOGIN", "admin"))
-    adm.definir_senha(os.environ.get("DEMO_ADMIN_SENHA", "demo-admin-2026"))
-    db.session.add(adm)
-    # Usuário de unidade escolar: vê apenas a Escola Municipal Exemplo e pode revogar autorizações dela.
-    adm_escola = AdminUsuario(nome="Secretaria da EM Exemplo (demo)", escola_id=e1.id,
-                              login=os.environ.get("DEMO_ESCOLA_LOGIN", "escola.exemplo"))
-    adm_escola.definir_senha(os.environ.get("DEMO_ESCOLA_SENHA", "demo-escola-2026"))
-    db.session.add(adm_escola)
+    # --- Administradores de demonstração -------------------------------
+    # Criados SOMENTE se DEMO_ADMIN_SENHA / DEMO_ESCOLA_SENHA estiverem definidas
+    # (ambiente local/testes). Com o Supabase, o acesso é pelo Authentication.
+    from flask import current_app
+    if current_app.config.get("DEMO_ADMIN_SENHA"):
+        adm = AdminUsuario(nome="Administrador (demo)", login=os.environ.get("DEMO_ADMIN_LOGIN", "admin"))
+        adm.definir_senha(current_app.config["DEMO_ADMIN_SENHA"])
+        db.session.add(adm)
+    if current_app.config.get("DEMO_ESCOLA_SENHA"):
+        adm_escola = AdminUsuario(nome="Secretaria da EM Exemplo (demo)", escola_id=e1.id,
+                                  login=os.environ.get("DEMO_ESCOLA_LOGIN", "escola.exemplo"))
+        adm_escola.definir_senha(current_app.config["DEMO_ESCOLA_SENHA"])
+        db.session.add(adm_escola)
     db.session.commit()
