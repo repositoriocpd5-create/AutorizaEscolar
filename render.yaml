@@ -48,5 +48,7 @@ services:
         sync: false
       - key: SUPABASE_PUBLISHABLE_KEY
         sync: false
+      - key: SUPABASE_SECRET_KEY
+        sync: false   # opcional: criar/convidar/bloquear usuários pelo painel
       - key: ADMIN_EMAILS
         sync: false   # e-mails que viram administradores da rede no 1º login
