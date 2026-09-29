@@ -25,4 +25,6 @@ docs/supabase/substituir-alunos*.sql
 
 # Imagens de referência soltas na raiz (não fazem parte do projeto)
 /*.png
+# Fontes locais das artes; as versões usadas pela aplicação ficam em app/static/img.
+/images/
 docs/supabase/corrigir_*.sql
