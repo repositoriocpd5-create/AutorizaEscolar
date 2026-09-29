@@ -7,7 +7,7 @@
 {%- endmacro %}
 
 {# ---------- AppHeader ---------- #}
-{% macro app_header(titulo=None, sair_url=None, voltar_url=None) -%}
+{% macro app_header(titulo=None, sair_url=None, voltar_url=None, mostrar_subtitulo=True) -%}
 <header class="app-header">
   <div class="app-header__inner">
     {% if voltar_url %}
@@ -16,7 +16,7 @@
     <img class="brasao" src="{{ brasao_url }}" alt="Brasão" width="46" height="47">
     <div class="app-header__text">
       <strong class="app-header__title">{{ titulo or titulo_sistema }}</strong>
-      <span class="app-header__sub">{{ instituicao }}</span>
+      {% if mostrar_subtitulo %}<span class="app-header__sub">{{ instituicao }}</span>{% endif %}
     </div>
     {% if sair_url %}
     <form method="post" action="{{ sair_url }}" class="app-header__action">
@@ -53,7 +53,8 @@
 
 {# ---------- PasseioCard ---------- #}
 {% macro passeio_card(p, estado, compacto=False) -%}
-<section class="card passeio-card" aria-labelledby="passeio-titulo">
+<section class="passeio-card-wrap" aria-labelledby="passeio-titulo">
+<section class="card passeio-card passeio-card--resumo">
   <div class="passeio-card__head">
     {% set img = imagem_passeio(p) %}
     <img class="passeio-card__icon passeio-card__icon--{{ 'foto' if img[1] else 'ilustracao' }}" src="{{ img[0] }}" alt="" width="84" height="64">
@@ -62,6 +63,8 @@
       {% if p.descricao and not compacto %}<p class="muted small">{{ p.descricao }}</p>{% endif %}
     </div>
   </div>
+ </section>
+ <section class="card passeio-card passeio-card--detalhes">
   <dl class="info-list">
     <div><dt>{{ icon('pin') }}Destino</dt><dd>{{ p.destino }}</dd></div>
     <div><dt>{{ icon('calendar') }}Data</dt><dd><strong>{{ p.data|data_br }}</strong></dd></div>
@@ -76,7 +79,7 @@
     {% if p.orientacoes %}
     <details class="orientacoes">
       <summary>Orientações da escola</summary>
-      <p>{{ p.orientacoes }}</p>
+      <p class="orientacoes__texto">{{ p.orientacoes }}</p>
     </details>
     {% endif %}
     {% if estado.aberto %}
@@ -88,6 +91,7 @@
       <p class="deadline deadline--closed">{{ icon('lock') }}<span>O prazo para respostas encerrou em {{ p.data_limite|data_hora_local_br }}.</span></p>
     {% endif %}
   {% endif %}
+ </section>
 </section>
 {%- endmacro %}
 

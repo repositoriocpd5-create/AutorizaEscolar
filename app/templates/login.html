@@ -1,45 +1,74 @@
 {% extends "base.html" %}
 {% import "components/ui.html" as ui with context %}
-{% block title %}Acesso{% endblock %}
+{% block title %}Acesso aos passeios{% endblock %}
 {% block body_class %}page-login{% endblock %}
 {% block main_class %}login-wrap{% endblock %}
 {% block content %}
-<section class="hero" aria-labelledby="hero-titulo">
-  <div class="hero__inst">
-    <img src="{{ brasao_url }}" alt="Brasão" width="64" height="65">
-    <span><strong>{{ instituicao }}</strong>Autorização digital de passeios escolares</span>
-  </div>
-  <img class="hero__art{% if imagem_personalizada %} hero__art--foto{% endif %}" src="{{ imagem_url }}" alt="" width="320" height="170">
-  <h1 id="hero-titulo" class="hero__title">{{ titulo }}</h1>
-  <p class="hero__sub">{{ subtitulo }}</p>
-</section>
+<header class="landing-header">
+  <a class="landing-brand" href="{{ url_for('public.login') }}" aria-label="Página inicial">
+    <img src="{{ brasao_url }}" alt="Brasão" width="78" height="80">
+    <span><strong>{{ instituicao }}</strong><small>{{ subtitulo or 'Passeios culturais escolares' }}</small></span>
+  </a>
+  <a class="landing-help" href="#ajuda">{{ ui.icon('info') }}<span>Precisa de ajuda?</span></a>
+</header>
 
-<section class="card login-card" aria-labelledby="login-titulo">
-  <form id="form-login" novalidate>
-    <label id="login-titulo" for="cpf" class="login-card__label">Para acessar, informe o CPF do responsável:</label>
-    <input id="cpf" name="cpf" class="input input--lg" inputmode="numeric" autocomplete="off"
-           placeholder="000.000.000-00" maxlength="14" required aria-describedby="cpf-ajuda login-erro">
-    {% for nome, rotulo, tipo, ph in campos_extra %}
-      <label for="{{ nome }}" class="login-card__label login-card__label--extra">{{ rotulo }}</label>
-      <input id="{{ nome }}" name="{{ nome }}" type="{{ tipo }}" class="input input--lg" placeholder="{{ ph }}" required>
-    {% endfor %}
-    <div id="login-erro" class="alert alert--error" role="alert" hidden></div>
-    <button type="submit" class="btn btn--primary btn--lg btn--block" id="btn-entrar">
-      <span class="js-texto">Entrar</span>
-    </button>
-    <p class="secure-note">{{ ui.icon('lock') }}Seus dados estão protegidos.</p>
-    <p id="cpf-ajuda" class="small muted center">Utilize o CPF cadastrado como responsável pelo aluno na unidade escolar.</p>
-  </form>
-</section>
-{% if demo_mode %}
-<p class="demo-hint">Demonstração: use o CPF <strong>000.000.000-00</strong> (José da Silva, 2 filhos) ou <strong>529.982.247-25</strong> (Ana Paula Souza, 3 filhos).</p>
-{% endif %}
+<div class="landing-grid">
+  <section class="landing-hero" aria-labelledby="hero-titulo">
+    <p class="landing-kicker"><img src="{{ url_for('static', filename='img/book.png') }}" alt="" aria-hidden="true">Aprender além da sala de aula</p>
+    <h1 id="hero-titulo">{{ login_chamada }}</h1>
+    <p class="landing-lead">{{ login_apoio }}</p>
+    <div class="landing-categorias" aria-hidden="true"><span>Cinema</span><span>Museus</span><span>Teatro</span></div>
+    <div class="landing-scene" aria-hidden="true">
+      <img class="scene-mobile-completa" src="{{ url_for('static', filename='img/cena-smartphone.png') }}" alt="">
+      <img class="scene-tree scene-tree--left" src="{{ url_for('static', filename='img/tree1.png') }}" alt="">
+      <img class="scene-tree scene-tree--right" src="{{ url_for('static', filename='img/tree1.png') }}" alt="">
+      <img class="scene-bus" src="{{ url_for('static', filename='img/bus.png') }}" alt="">
+      <img class="scene-cinema" src="{{ url_for('static', filename='img/cinema.png') }}" alt="">
+      <img class="scene-museu" src="{{ url_for('static', filename='img/museu.png') }}" alt="">
+      <img class="scene-teatro" src="{{ url_for('static', filename='img/teatro.png') }}" alt="">
+      <img class="scene-alunos" src="{{ url_for('static', filename='img/alunos.png') }}" alt="">
+    </div>
+  </section>
+
+  <section class="login-card landing-login" id="acesso" aria-labelledby="login-titulo">
+    <div class="landing-login__head">
+      <span class="landing-login__icon">{{ ui.icon('users') }}</span>
+      <div><h2 id="login-titulo">Acesso do responsável</h2><p>Tudo pronto para a próxima descoberta?</p></div>
+    </div>
+    <form id="form-login" novalidate>
+      <label for="cpf" class="login-card__label">CPF do responsável</label>
+      <div class="landing-input">
+        {{ ui.icon('users') }}
+        <input id="cpf" name="cpf" class="input input--lg" inputmode="numeric" autocomplete="off"
+               placeholder="000.000.000-00" maxlength="14" required aria-describedby="cpf-ajuda login-erro">
+      </div>
+      {% for nome, rotulo, tipo, ph in campos_extra %}
+        <label for="{{ nome }}" class="login-card__label login-card__label--extra">{{ rotulo }}</label>
+        <input id="{{ nome }}" name="{{ nome }}" type="{{ tipo }}" class="input input--lg" placeholder="{{ ph }}" required>
+      {% endfor %}
+      <div id="login-erro" class="alert alert--error" role="alert" hidden></div>
+      <p id="cpf-ajuda" class="login-help">Use o CPF cadastrado na unidade escolar.</p>
+      <button type="submit" class="btn btn--primary btn--lg btn--block" id="btn-entrar">
+        <span class="js-texto">Acessar passeios</span><span class="landing-arrow" aria-hidden="true">→</span>
+      </button>
+      <p class="secure-note">{{ ui.icon('file') }}Autorize a participação e baixe o comprovante.</p>
+    </form>
+    <div class="login-support" id="ajuda"><span>{{ ui.icon('info') }}</span><p><strong>Não conseguiu acessar?</strong><br>Entre em contato com a escola.</p></div>
+  </section>
+</div>
+<div class="sr-only" aria-label="Passeio em destaque"><img src="{{ imagem_url }}" alt="Imagem do passeio em destaque">{{ titulo }}</div>
+
+<ol class="landing-steps" aria-label="Como funciona">
+  <li><b>1</b><span>Informe seu CPF</span></li><li aria-hidden="true">›</li>
+  <li><b>2</b><span>Escolha o passeio</span></li><li aria-hidden="true">›</li>
+  <li><b>3</b><span>Autorize e baixe o PDF</span></li>
+</ol>
+{% if demo_mode %}<p class="demo-hint demo-hint--light">Demonstração: use o CPF <strong>000.000.000-00</strong>.</p>{% endif %}
 {% endblock %}
 {% block footer %}
-<footer class="site-footer site-footer--dark">
-  <a href="{{ url_for('public.privacidade') }}">Privacidade e tratamento de dados</a>
-  <span aria-hidden="true">·</span>
-  <a href="{{ url_for('public.validar_form') }}">Validar documento</a>
+<footer class="site-footer landing-footer">
+  <span class="landing-footer__brand"><img src="{{ brasao_url }}" alt="" aria-hidden="true">{{ instituicao }}</span>
+  <span class="landing-footer__links"><a href="{{ url_for('public.privacidade') }}">Privacidade e tratamento de dados</a><span aria-hidden="true">·</span><a href="{{ url_for('public.validar_form') }}">Validar documento</a></span>
 </footer>
 {% endblock %}
 {% block scripts %}<script src="{{ url_for('static', filename='js/login.js') }}"></script>{% endblock %}

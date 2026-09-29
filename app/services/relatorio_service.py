@@ -12,9 +12,12 @@ from reportlab.lib.pagesizes import A4, landscape
 from reportlab.lib.styles import ParagraphStyle
 from reportlab.lib.units import mm
 from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
+from sqlalchemy import func
+from sqlalchemy.orm import selectinload
 
+from ..extensions import db
 from ..formatacao import agora_local, data_br, data_hora_utc_br, rotulo_situacao
-from ..models import (Aluno, Autorizacao, Escola, Passeio, PasseioAluno, ResponsavelAluno, Situacao,
+from ..models import (Aluno, Autorizacao, Escola, Passeio, PasseioAluno, Responsavel, ResponsavelAluno, Situacao,
                       Turma)
 from .passeio_service import estado_passeio
 
@@ -49,7 +52,8 @@ RELATORIOS = {
 
 
 def consultar(passeio: Passeio, filtros: dict, admin) -> list[Linha]:
-    q = (Aluno.query.join(PasseioAluno, PasseioAluno.aluno_id == Aluno.id)
+    q = (Aluno.query.options(selectinload(Aluno.escola), selectinload(Aluno.turma))
+         .join(PasseioAluno, PasseioAluno.aluno_id == Aluno.id)
          .join(Turma, Turma.id == Aluno.turma_id).join(Escola, Escola.id == Aluno.escola_id)
          .filter(PasseioAluno.passeio_id == passeio.id))
     if admin.escola_id:  # escopo do administrador
@@ -63,12 +67,18 @@ def consultar(passeio: Passeio, filtros: dict, admin) -> list[Linha]:
     alunos = q.order_by(Escola.nome, Turma.ano, Turma.nome, Aluno.nome).all()
 
     ids = [a.id for a in alunos] or [0]
-    auts = {a.aluno_id: a for a in Autorizacao.query.filter(
+    auts = {a.aluno_id: a for a in Autorizacao.query.options(
+        selectinload(Autorizacao.responsavel), selectinload(Autorizacao.documento)).filter(
         Autorizacao.passeio_id == passeio.id, Autorizacao.aluno_id.in_(ids))}
-    vinc = {}
-    for v in ResponsavelAluno.query.filter(ResponsavelAluno.aluno_id.in_(ids), ResponsavelAluno.ativo.is_(True)):
-        if v.responsavel_legal:
-            vinc.setdefault(v.aluno_id, []).append(v.responsavel.nome)
+    vinculos = (db.session.query(
+                    ResponsavelAluno.aluno_id,
+                    func.string_agg(Responsavel.nome, ", ").label("responsaveis"))
+                .join(Responsavel, Responsavel.id == ResponsavelAluno.responsavel_id)
+                .join(PasseioAluno, PasseioAluno.aluno_id == ResponsavelAluno.aluno_id)
+                .filter(PasseioAluno.passeio_id == passeio.id, ResponsavelAluno.ativo.is_(True),
+                        ResponsavelAluno.responsavel_legal.is_(True))
+                .group_by(ResponsavelAluno.aluno_id))
+    vinc = dict(vinculos)
 
     encerrado = estado_passeio(passeio).encerrado
     termo = _normalizar(filtros.get("q") or "")
@@ -76,9 +86,9 @@ def consultar(passeio: Passeio, filtros: dict, admin) -> list[Linha]:
     for aluno in alunos:
         aut = auts.get(aluno.id)
         situacao = aut.situacao if aut else (Situacao.ENCERRADO if encerrado else Situacao.AGUARDANDO)
-        nomes = vinc.get(aluno.id, [])
-        resp_nome = aut.responsavel.nome if aut else (nomes[0] if nomes else "—")
-        linha = Linha(aluno, aut, situacao, resp_nome, ", ".join(nomes))
+        nomes = vinc.get(aluno.id, "")
+        resp_nome = aut.responsavel.nome if aut else (nomes.split(", ", 1)[0] if nomes else "—")
+        linha = Linha(aluno, aut, situacao, resp_nome, nomes)
         if termo and not all(parte in _normalizar(" ".join(x or "" for x in (
                 aluno.nome, aluno.matricula, linha.responsaveis, resp_nome, linha.protocolo)))
                 for parte in termo.split()):
@@ -166,7 +176,7 @@ def exportar_xlsx(linhas, titulo: str, passeio: Passeio) -> bytes:
     return buf.getvalue()
 
 
-def exportar_pdf(linhas, titulo: str, passeio: Passeio, instituicao: str) -> bytes:
+def exportar_pdf(linhas, titulo: str, passeio: Passeio, instituicao: str, brasao: str | None = None) -> bytes:
     buf = io.BytesIO()
     doc = SimpleDocTemplate(buf, pagesize=landscape(A4), leftMargin=12 * mm, rightMargin=12 * mm,
                             topMargin=12 * mm, bottomMargin=12 * mm, title=titulo)
@@ -174,11 +184,25 @@ def exportar_pdf(linhas, titulo: str, passeio: Passeio, instituicao: str) -> byt
     n = ParagraphStyle("n", fontName="Helvetica", fontSize=9, leading=12)
     c = ParagraphStyle("c", fontName="Helvetica", fontSize=8, leading=10)
     ind = indicadores(linhas)
-    el = [Paragraph(instituicao.upper(), n), Paragraph(titulo, h),
-          Paragraph(f"{passeio.nome} — {passeio.destino} — {data_br(passeio.data)}", n),
-          Paragraph(f"Total: {ind['total']} · Autorizados: {ind['autorizados']} · Não autorizados: "
-                    f"{ind['nao_autorizados']} · Aguardando: {ind['aguardando']} · Gerado em "
-                    f"{agora_local():%d/%m/%Y %H:%M}", n), Spacer(1, 6)]
+    # Reutiliza a mesma regra do documento de autorização: brasão configurado
+    # no painel, com retorno ao brasão institucional padrão.
+    from .documento_service import _brasao
+    cabecalho = Table([[_brasao(brasao, largura=18 * mm), [
+        Paragraph(instituicao.upper(), n),
+        Paragraph(titulo, h),
+        Paragraph(f"{passeio.nome} — {passeio.destino} — {data_br(passeio.data)}", n),
+        Paragraph(f"Total: {ind['total']} · Autorizados: {ind['autorizados']} · Não autorizados: "
+                  f"{ind['nao_autorizados']} · Aguardando: {ind['aguardando']} · Gerado em "
+                  f"{agora_local():%d/%m/%Y %H:%M}", n),
+    ]]], colWidths=[22 * mm, None])
+    cabecalho.setStyle(TableStyle([
+        ("VALIGN", (0, 0), (-1, -1), "TOP"),
+        ("LEFTPADDING", (0, 0), (-1, -1), 0),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 4),
+        ("TOPPADDING", (0, 0), (-1, -1), 0),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
+    ]))
+    el = [cabecalho, Spacer(1, 6)]
     dados = [[Paragraph(f"<b>{x}</b>", c) for x in CABECALHO]]
     dados += [[Paragraph(escape(str(x)), c) for x in row] for row in _linhas_tabulares(linhas)]
     t = Table(dados, repeatRows=1, colWidths=[20 * mm, 50 * mm, 45 * mm, 17 * mm, 17 * mm, 45 * mm,

@@ -15,6 +15,13 @@
     <label>Título do sistema<input name="titulo_sistema" class="input" maxlength="160" value="{{ cfg.titulo_sistema }}">
       <small class="muted">Usado no cabeçalho e na tela inicial quando não há passeio em destaque.</small></label>
     <label>Subtítulo da tela inicial<input name="subtitulo" class="input" maxlength="160" value="{{ cfg.subtitulo }}"></label>
+    <label class="span-2">Frase principal da tela de login
+      <textarea name="login_chamada" class="input" rows="2" maxlength="160">{{ cfg.login_chamada }}</textarea>
+      <small class="muted">Título em destaque exibido antes da ilustração.</small>
+    </label>
+    <label class="span-2">Texto de apoio da tela de login
+      <textarea name="login_apoio" class="input" rows="2" maxlength="240">{{ cfg.login_apoio }}</textarea>
+    </label>
     <label class="span-2">Passeio em destaque na tela inicial
       <select name="passeio_destaque" class="input">
         <option value="">Automático (passeio ativo mais recente)</option>

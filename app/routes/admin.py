@@ -4,6 +4,7 @@ from datetime import datetime
 
 from flask import (Blueprint, Response, abort, current_app, flash, redirect, render_template, request,
                    session, url_for)
+from sqlalchemy.orm import selectinload
 
 from .. import audit
 from ..extensions import db
@@ -13,7 +14,7 @@ from ..models import (Aluno, AdminUsuario, AuditLog, Autorizacao, Documento, Esc
                       Situacao, TEXTO_DECLARACAO_PADRAO, TEXTO_TERMO_PADRAO, Turma)
 from ..security import (admin_atual, admin_obrigatorio, client_ip, excedeu_limite, permissao_obrigatoria,
                         registrar_tentativa)
-from ..services import admin_auth_service, config_service, midia_service, supabase_admin
+from ..services import admin_auth_service, config_service, destino_service, midia_service, supabase_admin
 from ..services import relatorio_service as rel
 from ..services.autorizacao_service import ErroNegocio, cancelar_pela_escola, revogar_varias
 from ..services.passeio_service import estado_passeio, sincronizar_participantes
@@ -94,7 +95,7 @@ def _opcoes_filtro(adm, passeio=None):
             .filter(PasseioAluno.passeio_id == passeio.id)))
     if adm.escola_id:
         turmas_q = turmas_q.filter(Turma.escola_id == adm.escola_id)
-    turmas = turmas_q.order_by(Turma.ano, Turma.nome, Escola.nome).all()
+    turmas = turmas_q.options(selectinload(Turma.escola)).order_by(Turma.ano, Turma.nome, Escola.nome).all()
     escolas = sorted({t.escola for t in turmas}, key=lambda e: e.nome)
     anos = sorted({t.ano for t in turmas}, key=lambda a: (len(a), a))
     return escolas, turmas, anos
@@ -109,7 +110,8 @@ def dashboard():
         return render_template("admin/dashboard.html", passeio=None, passeios=[])
     filtros = _filtros()
     linhas = rel.consultar(passeio, filtros, adm)
-    base = rel.consultar(passeio, {k: v for k, v in filtros.items() if k != "situacao"}, adm)
+    base = (linhas if not filtros.get("situacao") else
+            rel.consultar(passeio, {k: v for k, v in filtros.items() if k != "situacao"}, adm))
     pagina = max(1, request.args.get("pagina", 1, type=int))
     total_paginas = max(1, (len(linhas) + POR_PAGINA - 1) // POR_PAGINA)
     pagina = min(pagina, total_paginas)
@@ -147,7 +149,8 @@ def exportar():
                         mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                         headers={"Content-Disposition": f'attachment; filename="{nome}.xlsx"'})
     if formato == "pdf":
-        return Response(rel.exportar_pdf(linhas, titulo, passeio, config_service.obter("instituicao_nome")),
+        return Response(rel.exportar_pdf(linhas, titulo, passeio, config_service.obter("instituicao_nome"),
+                                         config_service.obter("brasao")),
                         mimetype="application/pdf",
                         headers={"Content-Disposition": f'inline; filename="{nome}.pdf"'})
     abort(400)
@@ -338,6 +341,7 @@ def passeio_form(public_id=None):
             if not p.id:
                 db.session.add(p)
             db.session.flush()
+            destino_service.registrar(p.destino)
             sincronizar_participantes(p)
             audit.registrar(audit.Acao.ADMIN_ACAO, "ADMIN", admin_atual().id, alvo=f"passeio:{p.public_id}",
                             detalhes={"acao": "editar_passeio" if public_id else "criar_passeio"}, commit=False)
@@ -353,7 +357,8 @@ def passeio_form(public_id=None):
         else {t.id for t in p.turmas}
     return render_template("admin/passeio_form.html", p=p,
                            em_destaque=bool(p.public_id and config_service.obter("passeio_destaque") == p.public_id), erros=erros, escolas=escolas.all(),
-                           selecionadas=selecionadas, form=request.form if request.method == "POST" else None)
+                           selecionadas=selecionadas, form=request.form if request.method == "POST" else None,
+                           destinos=destino_service.listar())
 
 
 # ---------------------------------------------------------------------------
@@ -383,7 +388,7 @@ def configuracoes():
     erros = []
     if request.method == "POST":
         f = request.form
-        for chave in ("instituicao_nome", "titulo_sistema", "subtitulo"):
+        for chave in ("instituicao_nome", "titulo_sistema", "subtitulo", "login_chamada", "login_apoio"):
             config_service.definir(chave, f.get(chave, "")[:160])
         destaque = f.get("passeio_destaque", "")
         if destaque and not Passeio.query.filter_by(public_id=destaque).first():

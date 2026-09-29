@@ -243,16 +243,66 @@
 
   // Marca/desmarca todas as turmas de uma escola no cadastro de passeio
   document.querySelectorAll(".js-toggle-escola").forEach(function (chk) {
-    var turmas = document.querySelectorAll('input[name="turmas"][data-escola="' + chk.dataset.escola + '"]');
+    var box = chk.closest(".js-turmas-escola");
+    var turmas = box.querySelectorAll('input[name="turmas"]');
+    function visiveis() {
+      return Array.prototype.filter.call(turmas, function (t) {
+        return !t.closest(".js-turma-passeio").hidden;
+      });
+    }
     function sync() {
-      var marcadas = Array.prototype.filter.call(turmas, function (t) { return t.checked; }).length;
-      chk.checked = marcadas === turmas.length && turmas.length > 0;
-      chk.indeterminate = marcadas > 0 && marcadas < turmas.length;
+      var ativas = visiveis();
+      var marcadas = ativas.filter(function (t) { return t.checked; }).length;
+      chk.disabled = ativas.length === 0;
+      chk.checked = marcadas === ativas.length && ativas.length > 0;
+      chk.indeterminate = marcadas > 0 && marcadas < ativas.length;
     }
     chk.addEventListener("change", function () {
-      turmas.forEach(function (t) { t.checked = chk.checked; });
+      visiveis().forEach(function (t) { t.checked = chk.checked; });
     });
     turmas.forEach(function (t) { t.addEventListener("change", sync); });
+    chk.addEventListener("turmasvisibilidade", sync);
     sync();
+  });
+
+  // Filtra a lista do cadastro de passeio sem perder turmas já selecionadas.
+  function modalidadeDaTurma(el) {
+    var texto = (el.dataset.segmento + " " + el.dataset.ano + " " + el.dataset.nome)
+      .normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+    if (/\b(eja|nceja)\b/.test(texto)) return "eja";
+    if (/\b(bercario|maternal)\b/.test(texto) || /\bcreche\b/.test(texto)) return "creche";
+    if (/\b(nivel|pre[- ]?escola)\b/.test(texto) || /educacao infantil/.test(texto)) return "infantil";
+    if (/\b[1-5][ºo]?\s*ano\b/.test(texto) || /anos iniciais/.test(texto)) return "iniciais";
+    if (/\b[6-9][ºo]?\s*ano\b/.test(texto) || /anos finais/.test(texto)) return "finais";
+    return "outros";
+  }
+  document.querySelectorAll(".js-filtro-modalidade").forEach(function (filtro) {
+    var turmas = document.querySelectorAll(".js-turma-passeio");
+    function aplicar() {
+      turmas.forEach(function (turma) {
+        turma.hidden = !!filtro.value && modalidadeDaTurma(turma) !== filtro.value;
+      });
+      document.querySelectorAll(".js-turmas-escola").forEach(function (escola) {
+        escola.hidden = !Array.prototype.some.call(escola.querySelectorAll(".js-turma-passeio"), function (turma) {
+          return !turma.hidden;
+        });
+      });
+      document.querySelectorAll(".js-toggle-escola").forEach(function (chk) {
+        chk.dispatchEvent(new Event("turmasvisibilidade"));
+      });
+    }
+    filtro.addEventListener("change", aplicar);
+    aplicar();
+  });
+
+  // Atalhos do catálogo de destinos no cadastro de passeio.
+  document.querySelectorAll("[data-destino-rapido]").forEach(function (botao) {
+    botao.addEventListener("click", function () {
+      var input = document.querySelector(".js-destino-input");
+      if (!input) return;
+      input.value = botao.dataset.destinoRapido;
+      input.focus();
+      input.dispatchEvent(new Event("input", { bubbles: true }));
+    });
   });
 })();

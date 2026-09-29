@@ -95,6 +95,18 @@ class Turma(db.Model):
         return f"{self.ano} — {self.nome}"
 
 
+class DestinoSalvo(db.Model):
+    """Catálogo de destinos reutilizáveis cadastrados nos passeios."""
+    __tablename__ = "destino_salvo"
+
+    id = db.Column(db.Integer, primary_key=True)
+    nome = db.Column(db.String(200), nullable=False)
+    nome_normalizado = db.Column(db.String(200), nullable=False, unique=True, index=True)
+    usos = db.Column(db.Integer, nullable=False, default=1, server_default="1")
+    criado_em = db.Column(db.DateTime, nullable=False, default=utcnow)
+    atualizado_em = db.Column(db.DateTime, nullable=False, default=utcnow, onupdate=utcnow)
+
+
 class Responsavel(db.Model):
     __tablename__ = "responsavel"
     id = db.Column(db.Integer, primary_key=True)

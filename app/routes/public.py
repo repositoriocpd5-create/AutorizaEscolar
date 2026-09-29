@@ -29,6 +29,8 @@ def login():
         "login.html", campos_extra=provedor_atual().campos,
         titulo=destaque.nome if destaque else config_service.obter("titulo_sistema"),
         subtitulo=config_service.obter("subtitulo"),
+        login_chamada=config_service.obter("login_chamada"),
+        login_apoio=config_service.obter("login_apoio"),
         imagem_url=imagem_url, imagem_personalizada=foto)
 
 

@@ -9,12 +9,13 @@
 </div>
 <div class="table-wrap">
 <table class="data-table">
-  <thead><tr><th>Nome</th><th>Destino</th><th>Data</th><th>Prazo</th><th>Participantes</th><th>Situação</th><th></th></tr></thead>
+  <thead><tr><th>Nome</th><th>Destino</th><th>Orientações da escola</th><th>Data</th><th>Prazo</th><th>Participantes</th><th>Situação</th><th></th></tr></thead>
   <tbody>
   {% for p, estado, n in lista %}
     <tr>
       <td data-label="Nome"><strong>{{ p.nome }}</strong></td>
       <td data-label="Destino">{{ p.destino }}</td>
+      <td data-label="Orientações da escola" class="orientacoes-lista">{{ p.orientacoes or 'Não informadas.' }}</td>
       <td data-label="Data">{{ p.data|data_br }} {{ p.hora_saida|hora_br }}</td>
       <td data-label="Prazo">{{ p.data_limite|data_hora_local_br }}</td>
       <td data-label="Participantes">{{ n }}</td>
@@ -29,7 +30,7 @@
         {% if admin.pode('passeios') %}<a class="btn btn--outline btn--xs" href="{{ url_for('admin.passeio_form', public_id=p.public_id) }}">{{ ui.icon('edit') }}Editar</a>{% endif %}
       </td>
     </tr>
-  {% else %}<tr><td colspan="7" class="center muted">Nenhum passeio cadastrado.</td></tr>{% endfor %}
+  {% else %}<tr><td colspan="8" class="center muted">Nenhum passeio cadastrado.</td></tr>{% endfor %}
   </tbody>
 </table>
 </div>

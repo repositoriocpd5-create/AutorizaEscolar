@@ -17,14 +17,36 @@
     <h2 class="card-title span-2">Informações do passeio</h2>
     <label class="span-2">Nome do passeio<input name="nome" class="input" required maxlength="160" value="{{ v('nome', p.nome or '') }}" placeholder="Ex.: Passeio ao Cinema"></label>
     <label class="span-2">Descrição<textarea name="descricao" class="input" rows="2">{{ v('descricao', p.descricao or '') }}</textarea></label>
-    <label>Destino<input name="destino" class="input" required value="{{ v('destino', p.destino or '') }}"></label>
+    <label>Destino
+      <input id="destino" name="destino" class="input js-destino-input" required maxlength="200" autocomplete="off" list="destinos-salvos" value="{{ v('destino', p.destino or '') }}" placeholder="Ex.: Museu do Amanhã">
+      <small class="muted">Digite um novo local ou escolha um destino já salvo.</small>
+    </label>
     <label>Local de saída<input name="local_saida" class="input" required value="{{ v('local_saida', p.local_saida or '') }}"></label>
     <label>Data<input type="date" name="data" class="input" required value="{{ v('data', p.data.isoformat() if p.data else '') }}"></label>
     <label>Transporte<input name="transporte" class="input" value="{{ v('transporte', p.transporte or '') }}"></label>
     <label>Horário de saída<input type="time" name="hora_saida" class="input" required value="{{ v('hora_saida', p.hora_saida.strftime('%H:%M') if p.hora_saida else '') }}"></label>
     <label>Horário de retorno<input type="time" name="hora_retorno" class="input" required value="{{ v('hora_retorno', p.hora_retorno.strftime('%H:%M') if p.hora_retorno else '') }}"></label>
-    <label class="span-2">Orientações aos responsáveis<textarea name="orientacoes" class="input" rows="3">{{ v('orientacoes', p.orientacoes or '') }}</textarea></label>
+    <label class="span-2">Orientações da escola<textarea name="orientacoes" class="input" rows="3" placeholder="Ex.: Enviar lanche leve e garrafa de água. Usar uniforme escolar. Chegar à unidade escolar até 12h40.">{{ v('orientacoes', p.orientacoes or '') }}</textarea><small class="muted">Estas informações serão exibidas aos responsáveis na autorização.</small></label>
   </section>
+
+  <section class="card destinos-rapidos" aria-labelledby="destinos-recentes-titulo">
+    <div class="destinos-rapidos__cabecalho">
+      <h2 id="destinos-recentes-titulo" class="card-title">Destinos salvos</h2>
+      <p class="muted small">Atalhos dos destinos mais usados. Clique para preencher o campo.</p>
+    </div>
+    {% if destinos %}
+    <div class="destinos-rapidos__lista" aria-label="Destinos mais usados">
+      {% for destino in destinos[:8] %}
+      <button type="button" class="destino-chip" data-destino-rapido="{{ destino.nome }}" title="Usar {{ destino.nome }}">{{ ui.icon('pin') }}<span>{{ destino.nome }}</span></button>
+      {% endfor %}
+    </div>
+    {% else %}
+    <p class="muted small destinos-rapidos__vazio">Os destinos cadastrados nos próximos passeios aparecerão aqui.</p>
+    {% endif %}
+  </section>
+  <datalist id="destinos-salvos">
+    {% for destino in destinos %}<option value="{{ destino.nome }}"></option>{% endfor %}
+  </datalist>
 
   <section class="card form-grid js-imagem-evento">
     <h2 class="card-title span-2">Imagem do passeio</h2>
@@ -67,12 +89,26 @@
   <section class="card">
     <fieldset class="checks">
       <legend>Escolas e turmas participantes</legend>
+      <div class="turmas-filtro">
+        <label for="filtro-modalidade">Filtrar turmas por modalidade
+          <select id="filtro-modalidade" class="input js-filtro-modalidade">
+            <option value="">Todas as modalidades</option>
+            <option value="creche">Creche</option>
+            <option value="infantil">Educação Infantil</option>
+            <option value="iniciais">Ensino Fundamental — Anos Iniciais</option>
+            <option value="finais">Ensino Fundamental — Anos Finais</option>
+            <option value="eja">EJA / NCEJA</option>
+            <option value="outros">Outros</option>
+          </select>
+        </label>
+        <p class="muted small">A seleção já feita é preservada ao trocar o filtro.</p>
+      </div>
       {% for e in escolas %}
-      <div class="turmas-escola">
+      <div class="turmas-escola js-turmas-escola">
         <label class="check check--strong"><input type="checkbox" class="js-toggle-escola" data-escola="{{ e.id }}"> {{ e.nome }}</label>
         <div class="turmas-grid">
         {% for t in e.turmas %}
-          <label class="check"><input type="checkbox" name="turmas" value="{{ t.id }}" data-escola="{{ e.id }}" {% if t.id in selecionadas %}checked{% endif %}> {{ t.ano }} {{ t.nome }}</label>
+          <label class="check js-turma-passeio" data-ano="{{ t.ano }}" data-nome="{{ t.nome }}" data-segmento="{{ t.segmento or '' }}"><input type="checkbox" name="turmas" value="{{ t.id }}" data-escola="{{ e.id }}" {% if t.id in selecionadas %}checked{% endif %}> {{ t.ano }} {{ t.nome }}</label>
         {% endfor %}
         </div>
       </div>

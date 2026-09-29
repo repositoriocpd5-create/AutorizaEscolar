@@ -1,24 +1,30 @@
 {% extends "base.html" %}
 {% import "components/ui.html" as ui with context %}
 {% block title %}{{ passeio.nome }}{% endblock %}
-{% block header %}{{ ui.app_header(titulo=passeio.nome, sair_url=url_for('public.sair'),
-    voltar_url=url_for('public.painel') if mais_de_um else None) }}{% endblock %}
+{% block body_class %}page-passeio{% endblock %}
+{% block header %}{{ ui.app_header(titulo=instituicao, sair_url=url_for('public.sair'),
+voltar_url=url_for('public.painel') if mais_de_um else None, mostrar_subtitulo=False) }}{% endblock %}
 {% block content %}
 {% set respondiveis = itens|selectattr('pode_responder')|list %}
 {% set alteraveis = itens|selectattr('pode_alterar')|list %}
+<section class="passeio-hero" aria-labelledby="autorizacao-titulo">
+  <h1 id="autorizacao-titulo">Autorização de passeio</h1>
+  <p>Confira os detalhes e responda para cada filho.</p>
+</section>
 {{ ui.responsavel_card(responsavel) }}
 {{ ui.passeio_card(passeio, estado) }}
 
 <h2 class="section-title">Seus filhos matriculados</h2>
+<p class="section-lead">Selecione uma resposta para cada filho.</p>
 {% if not itens %}
-  <p class="card">Nenhum aluno vinculado a você participa deste passeio.</p>
+<p class="card">Nenhum aluno vinculado a você participa deste passeio.</p>
 {% endif %}
 <form id="form-respostas" data-passeio="{{ passeio.public_id }}"
-      data-api="{{ url_for('api.registrar', public_id=passeio.public_id) }}" novalidate>
+  data-api="{{ url_for('api.registrar', public_id=passeio.public_id) }}" novalidate>
   <div class="lista-alunos">
-  {% for item in itens %}
+    {% for item in itens %}
     {{ ui.aluno_card(item, passeio) }}
-  {% endfor %}
+    {% endfor %}
   </div>
 
   {% if respondiveis or alteraveis %}
@@ -28,12 +34,16 @@
       <button type="submit" class="btn btn--success btn--lg btn--block" id="btn-continuar" disabled>
         {{ ui.icon('file') }}Gerar autorização em PDF
       </button>
-      <p class="action-bar__note">{{ ui.icon('info') }}Será gerado um único arquivo em PDF com as respostas selecionadas.</p>
+      <p class="action-bar__note">{{ ui.icon('info') }}Será gerado um único arquivo em PDF com as respostas
+        selecionadas.</p>
     </div>
   </div>
   {% endif %}
 </form>
-<noscript><p class="alert alert--error">Ative o JavaScript do navegador para registrar a autorização.</p></noscript>
+<noscript>
+  <p class="alert alert--error">Ative o JavaScript do navegador para registrar a autorização.</p>
+</noscript>
 {{ ui.confirm_modal(passeio) }}
 {% endblock %}
-{% block scripts %}<script src="{{ url_for('static', filename='js/passeio.js') }}"></script>{% endblock %}
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/passeio.js') }}"></script>{% endblock %}
