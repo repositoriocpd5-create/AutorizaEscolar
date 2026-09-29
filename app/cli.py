@@ -83,7 +83,9 @@ def registrar_cli(app):
     @click.option("--inep", default=None, help="Já preenche o INEP da escola.")
     @click.option("--pepper-de", "pepper_de", default=None, type=click.Path(exists=True, dir_okay=False),
                   help="Arquivo .env de onde ler CPF_PEPPER (o valor não é exibido).")
-    def sql_alunos(arquivo, saida, inep, pepper_de):
+    @click.option("--substituir", is_flag=True,
+                  help="Substitui alunos, responsáveis, turmas e vínculos da escola indicada.")
+    def sql_alunos(arquivo, saida, inep, pepper_de, substituir):
         """Gera SQL de alunos + responsáveis (pai/mãe) para o SQL Editor do Supabase.
         Sem --inep/--pepper-de, preencha as linhas 4 e 5 do arquivo antes de rodar."""
         from dotenv import dotenv_values
@@ -93,7 +95,7 @@ def registrar_cli(app):
             raise click.ClickException("CPF_PEPPER não encontrado no arquivo informado.")
         leitura = imp.ler_arquivo(arquivo)
         with open(saida, "w", encoding="utf-8") as f:
-            f.write(imp.gerar_sql(leitura, inep=inep, pepper=pepper))
+            f.write(imp.gerar_sql(leitura, inep=inep, pepper=pepper, substituir=substituir))
         click.echo(f"{len(leitura.linhas)} alunos -> {saida} ({len(leitura.avisos)} aviso(s))")
         for a in leitura.avisos:
             click.echo(f"  AVISO: {a}")

@@ -194,6 +194,7 @@ label { font-weight: 600; }
 }
 .resp-card__label { display: block; font-size: .75rem; text-transform: uppercase; letter-spacing: .06em; color: var(--texto-suave); font-weight: 700; }
 .resp-card__name { font-size: 1.125rem; color: var(--azul-profundo); }
+.resp-card__mother { display: block; margin-top: .15rem; color: var(--texto-suave); font-size: .875rem; }
 .resp-card__cpf { font-family: ui-monospace, Consolas, monospace; }
 
 /* ---------- Passeio ---------- */

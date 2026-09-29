@@ -40,7 +40,13 @@
 {# ---------- ResponsavelCard ---------- #}
 {% macro responsavel_card(resp) -%}
 <section class="resp-card" aria-label="Dados do responsável">
-  <div><span class="resp-card__label">Responsável</span><strong class="resp-card__name">{{ resp.nome }}</strong></div>
+  <div>
+    <span class="resp-card__label">Responsável</span>
+    <strong class="resp-card__name">{{ resp.nome }}</strong>
+    {% if resp.nomes_maes_vinculadas %}
+    <span class="resp-card__mother">Mãe: {{ resp.nomes_maes_vinculadas|join(', ') }}</span>
+    {% endif %}
+  </div>
   <div><span class="resp-card__label">CPF</span><span class="resp-card__cpf">{{ resp.cpf_mascarado }}</span></div>
 </section>
 {%- endmacro %}

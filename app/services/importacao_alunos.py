@@ -134,7 +134,8 @@ def _lit(v) -> str:
     return "'" + str(v).replace("'", "''") + "'"
 
 
-def gerar_sql(leitura: Leitura, inep: str | None = None, pepper: str | None = None) -> str:
+def gerar_sql(leitura: Leitura, inep: str | None = None, pepper: str | None = None,
+              substituir: bool = False) -> str:
     """SQL em UM ÚNICO bloco DO (funciona em qualquer editor, inclusive o do Supabase,
     que pode não manter tabelas temporárias entre comandos). O INEP e o CPF_PEPPER ficam
     em variáveis nas primeiras linhas; podem vir preenchidos (arquivo local, fora do Git)."""
@@ -149,6 +150,59 @@ def gerar_sql(leitura: Leitura, inep: str | None = None, pepper: str | None = No
     pronto = bool(inep and pepper)
     topo = ("-- >>>>>>>>>> ARQUIVO PRONTO: basta clicar em \"RUN\" <<<<<<<<<<" if pronto else
             "-- >>>>>>>>>> PREENCHA AS LINHAS 4 E 5 E DEPOIS CLIQUE EM \"RUN\" <<<<<<<<<<")
+    limpeza = """
+  -- Replace the academic records of the selected school. Existing trips are
+  -- kept, but their old students and classes are removed.
+  IF EXISTS (
+    SELECT 1 FROM autorizacao au
+    JOIN aluno a ON a.id = au.aluno_id
+    WHERE a.escola_id = v_escola
+  ) OR EXISTS (
+    SELECT 1 FROM documento d
+    JOIN responsavel_aluno ra ON ra.responsavel_id = d.responsavel_id
+    JOIN aluno a ON a.id = ra.aluno_id
+    WHERE a.escola_id = v_escola
+  ) THEN
+    RAISE EXCEPTION 'Replacement cancelled: existing authorizations or documents reference this school.';
+  END IF;
+
+  CREATE TEMP TABLE _resp_antigos (id integer PRIMARY KEY) ON COMMIT DROP;
+  INSERT INTO _resp_antigos (id)
+  SELECT DISTINCT ra.responsavel_id
+  FROM responsavel_aluno ra
+  JOIN aluno a ON a.id = ra.aluno_id
+  WHERE a.escola_id = v_escola;
+
+  DELETE FROM passeio_aluno pa
+  USING aluno a
+  WHERE pa.aluno_id = a.id AND a.escola_id = v_escola;
+
+  DELETE FROM responsavel_aluno ra
+  USING aluno a
+  WHERE ra.aluno_id = a.id AND a.escola_id = v_escola;
+
+  DELETE FROM aluno WHERE escola_id = v_escola;
+  DELETE FROM responsavel r
+  USING _resp_antigos antigos
+  WHERE r.id = antigos.id
+    AND NOT EXISTS (SELECT 1 FROM responsavel_aluno ra WHERE ra.responsavel_id = r.id);
+""" if substituir else ""
+    limpeza_turmas = """
+  -- Keep trip-to-class links when the same class still exists in the new file.
+  DELETE FROM passeio_turma pt
+  USING turma t
+  WHERE pt.turma_id = t.id
+    AND t.escola_id = v_escola
+    AND NOT EXISTS (
+      SELECT 1 FROM _imp i WHERE i.ano = t.ano AND i.turma = t.nome
+    );
+
+  DELETE FROM turma t
+  WHERE t.escola_id = v_escola
+    AND NOT EXISTS (
+      SELECT 1 FROM _imp i WHERE i.ano = t.ano AND i.turma = t.nome
+    );
+""" if substituir else ""
     return f"""{topo}
 DO $importacao$
 DECLARE
@@ -189,6 +243,7 @@ BEGIN
     RAISE EXCEPTION 'Extensão pgcrypto não encontrada no schema extensions. No Supabase: Database → Extensions → pgcrypto.';
   END IF;
 
+{limpeza}
   DROP TABLE IF EXISTS _imp;
   CREATE TEMP TABLE _imp (
     aluno_id text, nome text, nascimento date, cpf_aluno text, ano text, turma text, segmento text,
@@ -204,6 +259,8 @@ BEGIN
     h_aluno = CASE WHEN cpf_aluno IS NOT NULL THEN encode(extensions.hmac(cpf_aluno, v_pepper, 'sha256'), 'hex') END,
     h_pai   = CASE WHEN cpf_pai   IS NOT NULL THEN encode(extensions.hmac(cpf_pai,   v_pepper, 'sha256'), 'hex') END,
     h_mae   = CASE WHEN cpf_mae   IS NOT NULL THEN encode(extensions.hmac(cpf_mae,   v_pepper, 'sha256'), 'hex') END;
+
+{limpeza_turmas}
 
   -- 1) Turmas
   INSERT INTO turma (nome, ano, escola_id, segmento)

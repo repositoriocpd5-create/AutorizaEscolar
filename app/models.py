@@ -9,6 +9,7 @@ Convenções:
 """
 import uuid
 from datetime import datetime, timezone
+import unicodedata
 
 from werkzeug.security import check_password_hash, generate_password_hash
 
@@ -117,6 +118,35 @@ class Responsavel(db.Model):
     @property
     def cpf_mascarado(self) -> str:
         return f"***.***.***-{self.cpf_final}" if self.cpf_final else "CPF não informado"
+
+    @property
+    def nomes_maes_vinculadas(self) -> list[str]:
+        """Nomes das mães dos alunos vinculados quando quem acessou é o pai.
+
+        A importação preserva um vínculo por responsável e aluno. Assim, o
+        cartão do pai pode apresentar a mãe correspondente sem replicar esse
+        dado no cadastro do responsável.
+        """
+        def tipo_normalizado(tipo: str | None) -> str:
+            texto = unicodedata.normalize("NFKD", tipo or "").lower()
+            return "".join(c for c in texto if not unicodedata.combining(c))
+
+        meus_vinculos = [v for v in self.vinculos if v.ativo]
+        if not any(tipo_normalizado(v.tipo_vinculo) == "pai" for v in meus_vinculos):
+            return []
+
+        nomes = []
+        vistos = set()
+        for vinculo in meus_vinculos:
+            for outro in vinculo.aluno.vinculos:
+                mae = outro.responsavel
+                if (not outro.ativo or mae is None or mae.id == self.id
+                        or tipo_normalizado(outro.tipo_vinculo) != "mae"):
+                    continue
+                if mae.nome not in vistos:
+                    vistos.add(mae.nome)
+                    nomes.append(mae.nome)
+        return nomes
 
 
 class Aluno(db.Model):

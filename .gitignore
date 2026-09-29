@@ -16,6 +16,7 @@ docs/supabase/escolas.sql
 # Dados reais de alunos e responsáveis (LGPD): nunca versionar
 csv/
 docs/supabase/alunos*.sql
+docs/supabase/substituir-alunos*.sql
 *.csv
 
 # Segredos de produção (ex.: CPF_PEPPER do Render) — nunca versionar
