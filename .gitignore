@@ -28,3 +28,7 @@ docs/supabase/substituir-alunos*.sql
 # Fontes locais das artes; as versões usadas pela aplicação ficam em app/static/img.
 /images/
 docs/supabase/corrigir_*.sql
+
+# Netlify build output
+netlify/public/
+

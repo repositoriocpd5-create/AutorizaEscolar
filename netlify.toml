@@ -1,9 +1,24 @@
 [build]
   publish = "netlify/public"
   functions = "netlify/functions"
+  command = "node netlify/build.mjs"
 
 [build.environment]
   NODE_VERSION = "22"
 
 [functions]
   node_bundler = "esbuild"
+
+# Cache de longa duração para arquivos estáticos entregues pelo CDN
+[[headers]]
+  for = "/static/*"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"
+
+# Cabeçalhos globais de segurança
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Content-Type-Options = "nosniff"
+    X-Frame-Options = "SAMEORIGIN"
+    Referrer-Policy = "strict-origin-when-cross-origin"
